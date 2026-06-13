@@ -14,8 +14,8 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.3.2"
-RELEASE_NOTES = "Pembaruan rutin dan perbaikan bug 2.3.2"
+CURRENT_VERSION = "2.3.3"
+RELEASE_NOTES = "Pembaruan rutin dan perbaikan bug 2.3.3"
 
 # Create Mutex to allow installer to detect running app
 try:

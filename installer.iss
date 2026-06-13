@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "PackFlow"
-#define MyAppVersion "2.3.2"
+#define MyAppVersion "2.3.3"
 #define MyAppPublisher "Akmal"
 #define MyAppExeName "PackFlow.exe"
 
@@ -17,6 +17,7 @@ AppMutex=PackFlowAppMutex
 DefaultDirName={localappdata}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
+PrivilegesRequired=lowest
 ; Otomatis tutup aplikasi jika sedang terbuka
 CloseApplications=yes
 RestartApplications=yes
