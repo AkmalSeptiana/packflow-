@@ -14,8 +14,8 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.3.4"
-RELEASE_NOTES = "Pembaruan rutin dan perbaikan bug 2.3.4"
+CURRENT_VERSION = "2.3.5"
+RELEASE_NOTES = "Pembaruan rutin dan perbaikan bug 2.3.5"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
