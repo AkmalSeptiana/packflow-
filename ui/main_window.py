@@ -14,7 +14,7 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.3.1"
+CURRENT_VERSION = "2.3.2"
 
 INDONESIAN_MONTHS = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
