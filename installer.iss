@@ -13,18 +13,25 @@ AppId={{E7902E4E-3E49-411E-B4C5-97F4FE6F7BB1}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+AppMutex=PackFlowAppMutex
 DefaultDirName={localappdata}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-; Remove admin privileges requirement for standard user setup
-PrivilegesRequired=lowest
+; Otomatis tutup aplikasi jika sedang terbuka
+CloseApplications=yes
+RestartApplications=yes
+; Hilangkan peringatan folder sudah ada (penting untuk update)
+DirExistsWarning=no
+; Jangan tanya lokasi install jika sudah ada
+DisableDirPage=auto
+; Sembunyikan halaman selamat datang agar lebih cepat
+DisableWelcomePage=yes
 OutputDir=installer_dist
 OutputBaseFilename=PackFlow_Setup
 SetupIconFile=assets\icon.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-DisableWelcomePage=no
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]

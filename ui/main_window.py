@@ -15,6 +15,15 @@ import tkinter as tk
 from core.updater import AutoUpdater
 
 CURRENT_VERSION = "2.3.2"
+RELEASE_NOTES = "Pembaruan rutin dan perbaikan bug 2.3.2"
+
+# Create Mutex to allow installer to detect running app
+try:
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    mutex = kernel32.CreateMutexW(None, False, "PackFlowAppMutex")
+except Exception:
+    pass
 
 INDONESIAN_MONTHS = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
@@ -1684,7 +1693,10 @@ class MainWindow(ctk.CTk):
         content.pack(fill="both", expand=True, padx=20, pady=20)
         
         ctk.CTkLabel(content, text=f"Versi {info['version']} Tersedia!", font=("Segoe UI", 18, "bold"), text_color="#3B82F6").pack(pady=(0, 5))
-        ctk.CTkLabel(content, text="Pembaruan baru telah dirilis dengan perbaikan dan fitur baru.", font=("Segoe UI", 12), text_color=("#4B5563", "#9CA3AF"), wraplength=350).pack(pady=5)
+        
+        # Menampilkan catatan rilis dari GitHub (atau pesan default jika kosong)
+        release_notes = info.get('body') or "Pembaruan baru telah dirilis dengan perbaikan dan fitur baru."
+        ctk.CTkLabel(content, text=release_notes, font=("Segoe UI", 12), text_color=("#4B5563", "#9CA3AF"), wraplength=350).pack(pady=5)
         
         # Progress bar for download (hidden initially)
         self.update_progress = ctk.CTkProgressBar(content, width=300)

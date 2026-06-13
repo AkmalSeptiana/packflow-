@@ -102,12 +102,18 @@ class AutoUpdater:
                             if total_size > 0:
                                 progress_callback(downloaded / total_size)
                 
-                self.log("Download selesai, menjalankan installer...")
+                self.log("Download selesai, bersiap menjalankan installer...")
                 finish_callback(True, installer_path)
                 
-                # Launch installer and exit app
-                subprocess.Popen([installer_path, "/SILENT"], shell=True)
-                sys.exit(0)
+                # Gunakan taskkill untuk memastikan proses benar-benar mati, 
+                # beri jeda 2 detik, lalu jalankan installer secara VERYSILENT.
+                cmd = f'taskkill /F /IM PackFlow.exe /T & timeout /t 2 /nobreak & start "" "{installer_path}" /VERYSILENT /SUPPRESSMSGBOXES'
+                
+                self.log("Menutup aplikasi dan meluncurkan update otomatis...")
+                subprocess.Popen(cmd, shell=True)
+                
+                import os
+                os._exit(0)
                 
             except Exception as e:
                 self.log(f"Gagal update: {str(e)}")
