@@ -166,25 +166,22 @@ class PDFLabelWriter:
                     rect_w = min(approx_text_width + 10, page_width - 40)
                     rect_h = self.font_size + 8
                     
-                    is_long = " + " in label_text
+                    # Selalu utamakan ruang kosong di atas terlebih dahulu
                     found_spot = self._find_empty_space(page, rect_w, rect_h, data)
                     bottom_y_start = int(data.get("crop_y", page.rect.height - 70))
                     
-                    if is_long:
-                        x_pos = 15
-                        target_y = bottom_y_start + 18
-                        self.log(f"Halaman {data['page_num']}: Label panjang, simpan di atas area putih (Y={target_y:.1f}).")
-                    elif found_spot:
+                    if found_spot:
                         x_pos, target_y = found_spot
-                        self.log(f"Halaman {data['page_num']}: Menempelkan Label di ruang kosong terdeteksi (Y={target_y:.1f})")
+                        self.log(f"Halaman {data['page_num']}: Menempelkan Label di ruang kosong atas (Y={target_y:.1f})")
                     elif cod_coords:
                         x_pos = cod_coords['x1'] + 5
                         target_y = cod_coords['bottom'] - 5
                         self.log(f"Halaman {data['page_num']}: Menempelkan Label di samping COD")
                     else:
+                        # Fallback terakhir: area putih di bawah
                         x_pos = 15
                         target_y = bottom_y_start + 18
-                        self.log(f"Halaman {data['page_num']}: Fallback ke atas area putih.")
+                        self.log(f"Halaman {data['page_num']}: Fallback ke area putih bawah (Y={target_y:.1f}).")
                 elif sku_header:
                     item_count = data.get("item_count", 1)
                     x_pos = sku_header['x1'] - 60 if item_count > 1 else sku_header['x1'] + 3
