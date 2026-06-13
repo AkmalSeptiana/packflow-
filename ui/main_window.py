@@ -14,14 +14,26 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.3.3"
-RELEASE_NOTES = "Pembaruan rutin dan perbaikan bug 2.3.3"
+CURRENT_VERSION = "2.3.4"
+RELEASE_NOTES = "Pembaruan rutin dan perbaikan bug 2.3.4"
 
-# Create Mutex to allow installer to detect running app
+# Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
     import ctypes
+    from tkinter import messagebox
     kernel32 = ctypes.windll.kernel32
+    ERROR_ALREADY_EXISTS = 183
     mutex = kernel32.CreateMutexW(None, False, "PackFlowAppMutex")
+    last_error = kernel32.GetLastError()
+    
+    if last_error == ERROR_ALREADY_EXISTS:
+        # Another instance is already running
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showwarning("Aplikasi Sudah Berjalan", 
+                               "PackFlow sudah berjalan di latar belakang.\nSilakan tutup aplikasi yang sedang terbuka terlebih dahulu.")
+        root.destroy()
+        sys.exit(0)
 except Exception:
     pass
 
@@ -119,8 +131,8 @@ class MainWindow(ctk.CTk):
         # Initialize Auto Updater
         # Menggunakan akun GitHub asli Anda: AkmalSeptiana/packflow-
         self.updater = AutoUpdater(CURRENT_VERSION, "AkmalSeptiana", "packflow-", logger=self._ui_log)
-        self.after(3000, self._check_updates) # Cek setelah 3 detik aplikasi terbuka
-        
+        # Check updates moved to _on_start_clicked for mandatory version check
+                
     def _load_settings(self):
         # 1. Try to load external settings (user modified)
         if os.path.exists(self.settings_path):
@@ -437,8 +449,26 @@ class MainWindow(ctk.CTk):
             pass
 
     def _on_start_clicked(self):
+        # Update button state to show checking
+        self.start_app_btn.configure(state="disabled", text="🔍  Mengecek Versi...")
+        
+        def check_callback(has_update, info):
+            if has_update and info:
+                # Update found, stay on splash and show update progress
+                self.after(0, lambda: self._start_update_from_splash(info))
+            else:
+                # No update or error, proceed to app
+                self.after(0, self._proceed_to_loading)
+        
+        # Add a timeout/fallback for check_for_updates if it hangs (e.g. no internet)
+        self.after(8000, lambda: self._proceed_to_loading() if hasattr(self, "start_app_btn") and self.start_app_btn.winfo_exists() and self.start_app_btn.cget("text") == "🔍  Mengecek Versi..." else None)
+        
+        self.updater.check_for_updates(check_callback)
+
+    def _prepare_splash_loading_ui(self):
+        """Prepares the loading/progress UI on the splash canvas."""
         # Destroy the welcome button widget to free resources
-        if hasattr(self, "start_app_btn"):
+        if hasattr(self, "start_app_btn") and self.start_app_btn.winfo_exists():
             self.start_app_btn.destroy()
             
         # Clear all welcome canvas items
@@ -482,9 +512,41 @@ class MainWindow(ctk.CTk):
             center_x, 510, text="Menginisialisasi sistem...", 
             font=("Segoe UI", 11), fill="#8F9CAE", anchor="center", tags="loading_items"
         )
-        
-        # Start the splash progress animation
+
+    def _proceed_to_loading(self):
+        """Normal flow to dashboard."""
+        if not hasattr(self, "start_app_btn") or not self.start_app_btn.winfo_exists():
+            return # Already transitioned
+            
+        self._prepare_splash_loading_ui()
         self._animate_splash()
+
+    def _start_update_from_splash(self, info):
+        """Transitions to update download flow within the splash screen."""
+        self._prepare_splash_loading_ui()
+        
+        # Inform user about the update
+        self.splash_canvas.itemconfig(self.loading_status_item, text=f"Update v{info['version']} tersedia. Mengunduh...")
+        self._ui_log(f"Memulai update otomatis dari Splash: {info['version']}")
+        
+        self.updater.start_update(
+            info["download_url"],
+            self._on_update_progress_splash,
+            self._on_update_finished_splash
+        )
+
+    def _on_update_progress_splash(self, progress):
+        self.after(0, lambda: [
+            self.splash_progress.set(progress),
+            self.splash_canvas.itemconfig(self.loading_status_item, text=f"Mengunduh pembaruan... {int(progress*100)}%")
+        ])
+
+    def _on_update_finished_splash(self, success, result):
+        if not success:
+            self.after(0, lambda: [
+                self.splash_canvas.itemconfig(self.loading_status_item, text=f"Gagal Update: {result}", fill="#EF4444"),
+                self.after(3000, self._proceed_to_loading) # Proceed to app after error message
+            ])
 
     def _animate_splash(self, step=0):
         # Stages of loading with associated status messages
