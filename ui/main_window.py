@@ -108,8 +108,8 @@ class MainWindow(ctk.CTk):
         self._animate_welcome_slide()
         
         # Initialize Auto Updater
-        # Menggunakan akun GitHub asli Anda: AkmalSeptiana/packflow
-        self.updater = AutoUpdater(CURRENT_VERSION, "AkmalSeptiana", "packflow", logger=self._ui_log)
+        # Menggunakan akun GitHub asli Anda: AkmalSeptiana/packflow-
+        self.updater = AutoUpdater(CURRENT_VERSION, "AkmalSeptiana", "packflow-", logger=self._ui_log)
         self.after(3000, self._check_updates) # Cek setelah 3 detik aplikasi terbuka
         
     def _load_settings(self):
@@ -537,7 +537,7 @@ class MainWindow(ctk.CTk):
         
         # Splash footer at the bottom (layered on top of canvas)
         self.splash_footer_item = self.splash_canvas.create_text(
-            370, 920, text="Versi 2.3.0  |  Developed by Akmal",
+            370, 920, text=f"Versi {CURRENT_VERSION}  |  Developed by Akmal",
             font=("Segoe UI", 11), fill="#64748B", anchor="center"
         )
         
@@ -657,7 +657,7 @@ class MainWindow(ctk.CTk):
         right_header_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
         right_header_frame.grid(row=0, column=2, rowspan=2, sticky="ne")
         
-        version_badge = ctk.CTkLabel(right_header_frame, text="v2.3.0", font=("Segoe UI", 11, "bold"), 
+        version_badge = ctk.CTkLabel(right_header_frame, text=f"v{CURRENT_VERSION}", font=("Segoe UI", 11, "bold"), 
                                      fg_color=("#E5E7EB", "#1E293B"), text_color="#3B82F6", corner_radius=6, width=60, height=24,
                                      cursor="hand2")
         version_badge.pack(side="left", padx=(0, 10), pady=4)
@@ -1180,7 +1180,7 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(content, text="PackFlow", font=("Segoe UI", 22, "bold"), text_color=("#1F2937", "#FFFFFF")).pack()
         
         # Version
-        ctk.CTkLabel(content, text="Versi 2.3.0", font=("Segoe UI", 13), text_color="#3B82F6").pack(pady=(2, 8))
+        ctk.CTkLabel(content, text=f"Versi {CURRENT_VERSION}", font=("Segoe UI", 13), text_color="#3B82F6").pack(pady=(2, 8))
         
         # Description
         ctk.CTkLabel(content, text="Otomatisasi Pelabelan Resi Pesanan\nuntuk Marketplace Shopee, Tiktok & Lazada", 

@@ -1,0 +1,99 @@
+================================================================================
+              PANDUAN LENGKAP PENGGUNAAN & PEMELIHARAAN PACKFLOW
+================================================================================
+
+Dokumen ini dibagi menjadi dua bagian: BAGIAN OWNER (untuk Anda sebagai 
+pengembang) dan BAGIAN PENGGUNA (untuk pengguna akhir aplikasi).
+
+--------------------------------------------------------------------------------
+                     🛠 BAGIAN 1: PANDUAN OWNER (DEVELOPER)
+--------------------------------------------------------------------------------
+Bagian ini menjelaskan cara memelihara, mem-build, dan merilis update aplikasi.
+
+1. STRUKTUR FOLDER PENTING:
+   - ui/   : Folder tampilan aplikasi (main window & settings).
+   - core/ : Folder logika inti (pdf reader, sku parser, updater).
+   - assets/: Folder gambar, ikon, dan logo aplikasi.
+   - config/: Folder tempat menyimpan settings.json default.
+
+2. CARA MELAKUKAN UPDATE KODE:
+   Jika Anda ingin mengubah fitur atau memperbaiki bug:
+   a. Edit kode di folder ui/ atau core/ sesuai kebutuhan.
+   b. Jalankan script otomatis: Buka terminal dan ketik 'python release_update.py'.
+   c. Masukkan nomor versi baru jika ditanya (misal: 2.4.0).
+   d. Script akan otomatis meng-update versi di semua file dan mengirim kode 
+      anda ke GitHub.
+
+3. CARA MEMBUAT FILE EXE (BUILD):
+   - Pastikan library terinstall: 'pip install -r requirements.txt'.
+   - Jalankan perintah: 'python build_exe.py'.
+   - Setelah selesai, buka aplikasi Inno Setup Compiler.
+   - Buka file 'installer.iss' dari folder proyek.
+   - Klik tombol Compile (Ikon Play Biru atau Build -> Compile).
+   - Hasil installer (.exe) ada di folder: 'installer_dist/PackFlow_Setup.exe'.
+
+4. CARA MERILIS UPDATE KE PUBLIK (Agar Auto-Update Berjalan):
+   - Buka GitHub (AkmalSeptiana/packflow-) di browser.
+   - Klik menu "Releases" -> "Create a new release".
+   - Isi Tag dengan format 'vX.X.X' (Contoh: v2.4.0).
+   - UNGGAH file 'PackFlow_Setup.exe' ke kotak "Attach binaries".
+   - Klik "Publish release".
+
+5. KUMPULAN PERINTAH TERMINAL (COPY-PASTE):
+   Berikut adalah kumpulan kode yang bisa Anda copy-paste langsung ke terminal:
+
+   # Instalasi Awal (Jika di PC baru)
+   pip install -r requirements.txt
+
+   # Menjalankan Aplikasi (Mode Pengembangan)
+   python main.py
+
+   # Build Menjadi EXE & Installer (Full)
+   python build_exe.py
+   & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+   # Melakukan Update Versi & Push ke GitHub
+   python release_update.py
+
+   # Perintah Git Manual (Jika dibutuhkan)
+   git status
+   git add .
+   git commit -m "Catatan update Anda"
+   git push origin main
+
+--------------------------------------------------------------------------------
+                     🚀 BAGIAN 2: PANDUAN PENGGUNA (USER)
+--------------------------------------------------------------------------------
+Bagian ini menjelaskan cara penggunaan fitur-fitur di dalam aplikasi.
+
+1. CARA PROSES PDF:
+   - Pilih Marketplace (Shopee/TikTok/Lazada) di pojok atas.
+   - Klik tombol folder besar untuk memilih file PDF Resi.
+   - Klik tombol folder kecil untuk memilih folder penyimpanan hasil.
+   - Klik tombol biru "START PROCESS" untuk memulai.
+
+2. PENJELASAN DASHBOARD:
+   - Dashboard Statistik: Menampilkan jumlah data yang diproses.
+   - Label [KENDALA]: Jika muncul, artinya SKU tidak terdaftar di Whitelist 
+     atau data resi tidak terbaca sempurna.
+   - Daftar Hasil: Menampilkan detail resi yang sudah berhasil diberi label.
+
+3. TOMBOL PRODUKTIVITAS:
+   - Ikon Kertas (Header): Menyalin semua daftar resi satu kota sekaligus.
+   - Ikon Pesawat Kertas (Send): Menyalin PDF untuk langsung di-paste ke chat.
+   - Ikon Folder Hijau: Membuka folder lokasi file PDF hasil proses.
+
+4. MENU PENGATURAN (SETTINGS):
+   - Whitelist SKU: Daftar kode SKU yang ingin Anda tempelkan labelnya.
+   - Ignored SKU: Daftar kata-kata yang ingin diabaikan oleh aplikasi.
+   - Format Nama: Anda bisa mengatur nama file otomatis sesuai kebutuhan.
+
+5. SISTEM UPDATE OTOMATIS:
+   - Aplikasi akan otomatis mengecek versi terbaru setiap kali dibuka.
+   - Jika ada update, klik "Update Sekarang". Aplikasi akan download dan 
+     install sendiri secara otomatis.
+
+--------------------------------------------------------------------------------
+Dikembangkan oleh: Akmal
+© 2026 PackFlow Automation Project. All rights reserved.
+================================================================================
