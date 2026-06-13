@@ -1,0 +1,25 @@
+PANDUAN MANUAL BUILD PACKFLOW
+=============================
+
+Langkah-langkah untuk membangun ulang (rebuild) aplikasi PackFlow menjadi file Installer:
+
+1. MEMBANGUN FILE EXECUTABLE (.EXE)
+   Buka terminal (CMD atau PowerShell) di folder project, lalu jalankan:
+   python build_exe.py
+   
+   Tunggu sampai muncul pesan: "BERHASIL! File EXE ada di folder 'dist/PackFlow.exe'"
+
+2. MEMBANGUN INSTALLER (.EXE SETUP)
+   Jika Anda menggunakan POWERSHELL, jalankan perintah ini (WAJIB pakai tanda & di awal):
+   & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+   Jika Anda menggunakan CMD (Command Prompt), jalankan perintah ini:
+   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+3. HASIL AKHIR
+   Installer yang siap dibagikan/diinstall akan berada di:
+   installer_dist\PackFlow_Setup.exe
+
+CATATAN:
+- Pastikan aplikasi PackFlow sedang tidak terbuka saat melakukan build.
+- Pastikan folder 'installer_dist' tidak sedang dibuka oleh aplikasi lain.
