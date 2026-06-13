@@ -112,7 +112,6 @@ class AutoUpdater:
                 self.log("Menutup aplikasi dan meluncurkan update otomatis...")
                 subprocess.Popen(cmd, shell=True)
                 
-                import os
                 os._exit(0)
                 
             except Exception as e:
