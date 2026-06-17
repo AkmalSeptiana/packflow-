@@ -1,4 +1,4 @@
-import pdfplumber
+﻿import pdfplumber
 import re
 
 class ShopeePDFReader:
@@ -35,11 +35,10 @@ class ShopeePDFReader:
                     resi_patterns = [
                         r'\b(?:GK|IN)-\d+-[A-Z0-9-]+\b',               # Instant GK- or IN- patterns
                         r'\bIN-[A-Z0-9-]+\b',                          # Other IN- formats
-                        r'\b00\d{10,13}\b',                            # Sicepat (starts with 00)
-                        r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',             # Mangled SiCepat/COD (C0O, 0O, etc)
+                        r'\b00\d{10,11}\b',                            # Sicepat
                         r'\b1\d{12,13}\b',                             # Anteraja (starts with 1, 13-14 digits)
                         r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHP|SHPE|NX)[\s:.]*[A-Z0-9]{7,25}', # Alphanumeric with flexible separators
-                        r'\b(?!08)\d{10,20}\b'                         # General numeric fallback - Exclude Indonesian phones (08...)
+                        r'\b\d{10,20}\b'                               # General numeric fallback (relaxed length)
                     ]
                     
                     all_matches = []
@@ -50,23 +49,13 @@ class ShopeePDFReader:
                                 all_matches.append(val)
                     
                     if all_matches:
-                        # Prioritization Logic: SPXID first, then SiCepat (00, C0O, 0O), then everything else
+                        # Prioritize SPXID if multiple matches found
                         spx_matches = [m for m in all_matches if "SPX" in m.upper()]
-                        sicepat_matches = [m for m in all_matches if m.startswith("00") or m.startswith("C0O") or m.startswith("0O")]
+                        resi_val = spx_matches[0] if spx_matches else all_matches[0]
                         
-                        if spx_matches:
-                            resi_val = spx_matches[0]
-                        elif sicepat_matches:
-                            resi_val = sicepat_matches[0]
-                        else:
-                            resi_val = all_matches[0]
-                        
-                        # --- DEEP CLEAN SELECTION ---
-                        # Remove common PDF noise that gets stuck to the resi
-                        for noise in [":", ".", ",", "(", ")", "COD", "NON-COD", "ECO", "REG"]:
-                            resi_val = re.sub(fr'\b{re.escape(noise)}\b', ' ', resi_val, flags=re.IGNORECASE)
-                            resi_val = resi_val.replace(noise, " ")
-                        resi_val = resi_val.strip()
+                        # Deep Clean
+                        for char in [":", ".", ",", "(", ")"]:
+                            resi_val = resi_val.replace(char, " ")
                         
                         # Identify Prefix - Initialize as empty
                         found_prefix = ""
@@ -106,17 +95,9 @@ class ShopeePDFReader:
                                 body = re.sub(r'COD', '', body, flags=re.IGNORECASE)
                                 page_data["resi"] = found_prefix.upper() + body
                         else:
-                            # NO PREFIX: numeric-only resi or mixed (like some Sicepat/TikTok formats)
-                            # Remove all noise, keep alphanumeric
-                            clean_val = re.sub(r'[^A-Z0-9]', '', resi_val.upper())
-                            
-                            # If it's likely a numeric-mostly resi (like Sicepat), keep only digits
-                            # unless it's a known format with letters.
-                            if len(re.sub(r'[^0-9]', '', clean_val)) >= 10:
-                                # If it has leading '00', '0O', or mangled 'C0O', we want the numeric body
-                                if any(clean_val.startswith(p) for p in ['00', '0O', 'C0O']):
-                                    clean_val = re.sub(r'[^0-9]', '', clean_val)
-                            
+                            # NO PREFIX: numeric-only resi like Sicepat/Anteraja
+                            # Just clean up spaces and noise from the whole string
+                            clean_val = re.sub(r'[^0-9]', '', resi_val)
                             page_data["resi"] = clean_val
                             
                         self.log(f"Nomor Resi: {page_data['resi']}")
@@ -179,9 +160,6 @@ class ShopeePDFReader:
                             for n in noise:
                                 city_raw = re.sub(fr'\b{n}\b', '', city_raw, flags=re.IGNORECASE)
 
-                            # Remove phone numbers / country codes (e.g. PALU (+62) 812...)
-                            city_raw = re.split(r'\(|\+|~\d| \d{5,}', city_raw)[0].strip()
-
                             # Normalize city string
                             # 1. Remove "KOTA" (case insensitive)
                             city_normalized = re.sub(r'\bKOTA\b', '', city_raw, flags=re.IGNORECASE).strip()
@@ -189,7 +167,7 @@ class ShopeePDFReader:
                             city_normalized = re.sub(r'\bKABUPATEN\b', 'KAB.', city_normalized, flags=re.IGNORECASE)
                             city_normalized = re.sub(r'\bKAB\b(?!\.)', 'KAB.', city_normalized, flags=re.IGNORECASE)
                             
-                            page_data["kota"] = city_normalized.strip("., ")
+                            page_data["kota"] = city_normalized
                             kota_found = True if page_data["kota"] else False
 
                     # Final Fallback for City: Search whole page for KOTA/KAB if Pengirim line failed
@@ -354,12 +332,11 @@ class TikTokPDFReader:
         resi_patterns = [
             r'\b(?:GK|IN)-\d+-[A-Z0-9-]+\b',
             r'\bIN-[A-Z0-9-]+\b',
-            r'\b00\d{10,13}\b',
-            r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',
+            r'\b00\d{10,11}\b',
             r'\b1\d{12,13}\b',
             r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX)[\s:.]*[A-Z0-9]{7,25}',
             r'\b[A-Z]{2,4}\d{9,15}[A-Z]*\b',
-            r'\b(?!08)\d{10,15}\b'
+            r'\b\d{10,15}\b'
         ]
         all_matches = []
         for pattern in resi_patterns:
@@ -369,23 +346,11 @@ class TikTokPDFReader:
                     all_matches.append(val)
 
         if all_matches:
-            # Prioritization Logic: SPXID/JX/JP first, then SiCepat (00, C0O, 0O), then everything else
-            special_matches = [m for m in all_matches if any(prefix in m.upper() for prefix in ["JX", "JP", "NLID", "SPX", "NX"])]
-            sicepat_matches = [m for m in all_matches if m.startswith("00") or m.upper().startswith("C0O") or m.upper().startswith("0O")]
-            
-            if special_matches:
-                resi_val = special_matches[0]
-            elif sicepat_matches:
-                resi_val = sicepat_matches[0]
-            else:
-                resi_val = all_matches[0]
-                
-            # Deep Clean 'COD' and other noise from TikTok matches
-            for noise in ["COD", "NON-COD", "ECO", "REG", ":", ".", ",", "(", ")"]:
-                resi_val = re.sub(fr'\b{re.escape(noise)}\b', '', resi_val, flags=re.IGNORECASE)
-                resi_val = resi_val.replace(noise, "")
+            jx_matches = [m for m in all_matches if any(prefix in m.upper() for prefix in ["JX", "JP", "NLID", "SPX", "NX"])]
+            resi_val = jx_matches[0] if jx_matches else all_matches[0]
+            for char in [":", ".", ",", "(", ")"]:
+                resi_val = resi_val.replace(char, " ")
             resi_val = re.sub(r'\s+', '', resi_val)
-
             if resi_val != page_data["nomor_pesanan"]:
                 page_data["resi"] = resi_val.upper()
 
@@ -458,12 +423,10 @@ class TikTokPDFReader:
                     break
         
         # Final cleanup and Shop Name fallback
-            # 1. Remove Phone/Country Code noise (e.g. PALU (+62)...)
-            city_val = re.split(r'\(|\+| \d{5,}', city_val)[0].strip()
-            
-            # 2. Remove "KOTA"
+        if city_val:
+            # 1. Remove "KOTA"
             city_val = re.sub(r'\bKOTA\b', '', city_val, flags=re.IGNORECASE).strip()
-            # 3. Normalize KABUPATEN/KAB to KAB.
+            # 2. Normalize KABUPATEN/KAB to KAB.
             city_val = re.sub(r'\bKABUPATEN\b', 'KAB.', city_val, flags=re.IGNORECASE)
             city_val = re.sub(r'\bKAB\b(?!\.)', 'KAB.', city_val, flags=re.IGNORECASE)
             

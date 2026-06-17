@@ -14,8 +14,8 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.3.8"
-RELEASE_NOTES = "update penulisan label. tiktok"
+CURRENT_VERSION = "2.3.9"
+RELEASE_NOTES = "update penulisan label sicepat & update penulisan nama file"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
