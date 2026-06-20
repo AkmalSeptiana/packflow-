@@ -159,14 +159,21 @@ class PDFLabelWriter:
                 cod_coords = data.get("cod_coords")
                 sku_header = data.get("sku_header_coords")
                 penerima_coords = data.get("penerima_coords")
+                # Fix: data.get("coords") was passed from main_window's unboxing_coords
                 unboxing_coords = data.get("coords")
                 
+                # Determine unique SKU count (split by ' + ' but ignore suffix)
+                base_label = label_text.split(" - ")[0]
+                sku_count = len(base_label.split(" + "))
+                
+                # User preference: Max font 18
+                draw_font_size = min(self.font_size, 18)
+
                 if marketplace_mode == "TikTok":
-                    approx_text_width = fitz.get_text_length(label_text, fontname=self.font_name, fontsize=self.font_size)
+                    approx_text_width = fitz.get_text_length(label_text, fontname=self.font_name, fontsize=draw_font_size)
                     rect_w = min(approx_text_width + 10, page_width - 40)
-                    rect_h = self.font_size + 8
+                    rect_h = draw_font_size + 8
                     
-                    # Selalu utamakan ruang kosong di atas terlebih dahulu
                     found_spot = self._find_empty_space(page, rect_w, rect_h, data)
                     bottom_y_start = int(data.get("crop_y", page.rect.height - 70))
                     
@@ -178,16 +185,31 @@ class PDFLabelWriter:
                         target_y = cod_coords['bottom'] - 5
                         self.log(f"Halaman {data['page_num']}: Menempelkan Label di samping COD")
                     else:
-                        # Fallback terakhir: area putih di bawah
                         x_pos = 15
                         target_y = bottom_y_start + 18
                         self.log(f"Halaman {data['page_num']}: Fallback ke area putih bawah (Y={target_y:.1f}).")
+                elif sku_count > 4 and unboxing_coords:
+                    # OVERWRITE UNBOXING AREA
+                    self.log(f"Halaman {data['page_num']}: SKU > 4 ({sku_count}), memimpa area UNBOXING.")
+                    
+                    # Ensure original text is completely invisible by using redaction + white fill
+                    cover_rect = fitz.Rect(15, unboxing_coords['top'] - 2, page_width - 15, unboxing_coords['bottom'] + 2)
+                    page.add_redact_annot(cover_rect, fill=(1, 1, 1))
+                    page.apply_redactions()
+                    
+                    # Redraw a white rectangle just in case (double layer)
+                    page.draw_rect(cover_rect, color=(1, 1, 1), fill=(1, 1, 1), width=0, overlay=True)
+                    
+                    x_pos = 20 # Left margin for unboxing overwrite
+                    target_y = (unboxing_coords['top'] + unboxing_coords['bottom']) / 2 + (draw_font_size * 0.3)
                 elif sku_header:
+                    # Regular SKU position (near header)
                     item_count = data.get("item_count", 1)
                     x_pos = sku_header['x1'] - 60 if item_count > 1 else sku_header['x1'] + 3
                     target_y = sku_header['bottom'] + 2
-                    self.log(f"Halaman {data['page_num']}: Menempelkan Label SKU")
+                    self.log(f"Halaman {data['page_num']}: Menempelkan Label SKU ({sku_count} unique)")
                 elif unboxing_coords:
+                    # Fallback near unboxing (without overwriting)
                     x_pos = page_width * 0.38 
                     target_y = unboxing_coords['bottom'] + 2
                     self.log(f"Halaman {data['page_num']}: Menempelkan Label (fallback Unboxing)")
@@ -196,39 +218,56 @@ class PDFLabelWriter:
                     target_y = penerima_coords['bottom'] 
                     self.log(f"Halaman {data['page_num']}: Menempelkan Label (fallback Buyer)")
                 else:
-                    text_width = fitz.get_text_length(label_text, fontname=self.font_name, fontsize=self.font_size)
+                    text_width = fitz.get_text_length(label_text, fontname=self.font_name, fontsize=draw_font_size)
                     x_pos = (page_width - text_width) / 2
                     target_y = 200
                 
-                # --- Text Drawing logic ---
-                max_avail_width = (page_width - x_pos) - 10
-                def get_text_width(text):
-                    return fitz.get_text_length(text, fontname=self.font_name, fontsize=self.font_size)
-                
-                full_width = get_text_width(label_text)
-                lines = []
-                if full_width > max_avail_width and " + " in label_text:
+                # --- Text Preparation (Single vs Multi-line) ---
+                if sku_count >= 6 and " + " in label_text:
+                    # Split into lines for 6+ SKUs
                     parts = label_text.split(" + ")
+                    lines = []
                     current_line = parts[0]
-                    for p in parts[1:]:
-                        test_line = current_line + " + " + p
-                        if get_text_width(test_line) < max_avail_width:
-                            current_line = test_line
+                    # Simple heuristic: split every 3-4 items if possible
+                    items_per_line = 3 if sku_count > 8 else 4
+                    for i, p in enumerate(parts[1:], 1):
+                        if i % items_per_line == 0:
+                            lines.append(current_line + " +")
+                            current_line = p
                         else:
-                            lines.append(current_line); current_line = "+ " + p
+                            current_line += " + " + p
                     lines.append(current_line)
                 else:
                     lines = [label_text]
-      
+
+                # --- Size & Drawing logic ---
+                # Fixed x_pos and target_y calculated above
+                max_avail_width = (page_width - x_pos) - 15
+                
+                # Auto-shrink font logic (based on the longest line)
+                temp_fs = draw_font_size
+                longest_line = max(lines, key=lambda l: fitz.get_text_length(l, fontname=self.font_name, fontsize=10))
+                while temp_fs > 7:
+                    curr_w = fitz.get_text_length(longest_line, fontname=self.font_name, fontsize=temp_fs)
+                    if curr_w <= max_avail_width:
+                        break
+                    temp_fs -= 0.5
+                
+                final_font_size = temp_fs
                 current_y = target_y
-                for line in lines:
-                    this_w = get_text_width(line)
-                    bg_rect = fitz.Rect(x_pos - 3, current_y - self.font_size * 0.8, x_pos + this_w + 3, current_y + 2)
+                line_height = final_font_size * 1.1 # Tighter line height for multi-line
+                
+                for i, line in enumerate(lines):
+                    line_w = fitz.get_text_length(line, fontname=self.font_name, fontsize=final_font_size)
+                    # Draw background for current line
+                    bg_rect = fitz.Rect(x_pos - 3, current_y - final_font_size * 0.8, x_pos + line_w + 3, current_y + 2)
                     page.draw_rect(bg_rect, color=(1, 1, 1), fill=(1, 1, 1), overlay=True)
-                    page.insert_text((x_pos, current_y), line, fontsize=self.font_size, fontname=self.font_name, color=self.color)
+                    
+                    page.insert_text((x_pos, current_y), line, fontsize=final_font_size, fontname=self.font_name, color=self.color)
                     if "bold" in self.font_name.lower():
-                        page.insert_text((x_pos, current_y), line, fontsize=self.font_size, fontname=self.font_name, color=self.color)
-                    current_y += self.font_size + 2
+                        page.insert_text((x_pos, current_y), line, fontsize=final_font_size, fontname=self.font_name, color=self.color)
+                    
+                    current_y += line_height
 
         if split_pages:
             # Group by City (Gudang) logic

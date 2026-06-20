@@ -13,6 +13,7 @@ class ShopeePDFReader:
 
     def extract_data(self, pdf_path):
         results = []
+        all_pages_raw = []
         try:
             with pdfplumber.open(pdf_path) as pdf:
                 for i, page in enumerate(pdf.pages):
@@ -24,7 +25,10 @@ class ShopeePDFReader:
                         "items": [],
                         "sku_header_coords": None,
                         "unboxing_coords": None,
-                        "penerima_coords": None
+                        "penerima_coords": None,
+                        "start_index": -1,
+                        "end_index": -1,
+                        "is_shipping_label": False
                     }
                     
                     text = page.extract_text()
@@ -35,6 +39,8 @@ class ShopeePDFReader:
                     resi_patterns = [
                         r'\b(?:GK|IN)-\d+-[A-Z0-9-]+\b',               # Instant GK- or IN- patterns
                         r'\bIN-[A-Z0-9-]+\b',                          # Other IN- formats
+                        r'\bSD-[A-Z0-9-]+\b',                          # Grab Express SD- patterns
+                        r'\bJY\d{9,15}\b',                             # JNE YES (JY...)
                         r'\b00\d{10,13}\b',                            # Sicepat (starts with 00)
                         r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',             # Mangled SiCepat/COD (C0O, 0O, etc)
                         r'\b1\d{12,13}\b',                             # Anteraja (starts with 1, 13-14 digits)
@@ -70,7 +76,7 @@ class ShopeePDFReader:
                         
                         # Identify Prefix - Initialize as empty
                         found_prefix = ""
-                        prefixes = ["SPXID", "SPX", "ID", "JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "SHPE", "SHP", "NX"]
+                        prefixes = ["SPXID", "SPX", "ID", "JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "SHPE", "SHP", "NX", "SD-", "SD", "JY", "GK-", "IN-"]
                         for p in prefixes:
                             if resi_val.upper().startswith(p):
                                 found_prefix = p
@@ -95,11 +101,15 @@ class ShopeePDFReader:
                                     page_data["resi"] = "SPXID" + body
                                 else:
                                     page_data["resi"] = found_prefix.upper() + body
-                            elif found_prefix.upper() == "ID":
-                                # SPECIAL: ID prefix can be numeric or have trailing letters
+                            elif found_prefix.upper() in ["ID", "SD-", "SD", "GK-", "IN-"]:
+                                # SPECIAL: ID prefix or Instant/Grab can have letters and hyphens
                                 body = re.sub(r'COD', '', body, flags=re.IGNORECASE)
-                                body = re.sub(r'[^A-Z0-9]', '', body, flags=re.IGNORECASE)
-                                page_data["resi"] = "ID" + body.upper()
+                                if "SD" in found_prefix.upper() or "GK" in found_prefix.upper() or "IN" in found_prefix.upper():
+                                    # Preserve hyphens for Grab/Instant
+                                    body = re.sub(r'[^A-Z0-9-]', '', body, flags=re.IGNORECASE)
+                                else:
+                                    body = re.sub(r'[^A-Z0-9]', '', body, flags=re.IGNORECASE)
+                                page_data["resi"] = found_prefix.upper() + body.upper()
                             else:
                                 # Fallback for unexpected alphanumeric formats
                                 body = re.sub(r'[^A-Z0-9]', '', body, flags=re.IGNORECASE)
@@ -107,8 +117,11 @@ class ShopeePDFReader:
                                 page_data["resi"] = found_prefix.upper() + body
                         else:
                             # NO PREFIX: numeric-only resi or mixed (like some Sicepat/TikTok formats)
-                            # Remove all noise, keep alphanumeric
-                            clean_val = re.sub(r'[^A-Z0-9]', '', resi_val.upper())
+                            # Remove all noise, keep alphanumeric (and hyphens if it looks like SD/GK/IN)
+                            if any(resi_val.upper().startswith(p) for p in ["SD", "GK", "IN"]):
+                                clean_val = re.sub(r'[^A-Z0-9-]', '', resi_val.upper())
+                            else:
+                                clean_val = re.sub(r'[^A-Z0-9]', '', resi_val.upper())
                             
                             # If it's likely a numeric-mostly resi (like Sicepat), keep only digits
                             # unless it's a known format with letters.
@@ -121,6 +134,7 @@ class ShopeePDFReader:
                             
                         self.log(f"Nomor Resi: {page_data['resi']}")
                         found_resi = True
+                        page_data["is_shipping_label"] = True
                     
                     order_match = re.search(r'PESANAN[:\s]*([A-Z0-9]+)', text, re.IGNORECASE)
                     if order_match:
@@ -283,6 +297,10 @@ class ShopeePDFReader:
 
                         # A. Skip Row Index (First part if digit and separated)
                         if parts[0].isdigit() and len(parts) > 1:
+                            row_idx = int(parts[0])
+                            if page_data["start_index"] == -1:
+                                page_data["start_index"] = row_idx
+                            page_data["end_index"] = row_idx
                             parts = parts[1:]
 
                         # B. Identify Qty at the very end
@@ -302,10 +320,38 @@ class ShopeePDFReader:
                                 page_data["items"].append((sku_candidate, qty))
                                 self.log(f"Terbaca: SKU='{sku_candidate}', Qty={qty}")
                     
-                    if page_data["items"]:
-                        results.append(page_data)
-                    else:
-                        self.log(f"Halaman {i+1}: Tidak ada SKU terdeteksi.")
+                    all_pages_raw.append(page_data)
+
+            # Phase 2: Merge continuation pages
+            final_results = []
+            for p_raw in all_pages_raw:
+                if not p_raw["items"]:
+                    continue
+                
+                if not final_results:
+                    final_results.append(p_raw)
+                    continue
+                
+                prev = final_results[-1]
+                
+                # Continuation detection logic:
+                # 1. Next page starts with # X+1 where prev page ended with # X
+                # 2. Next page doesn't have its own valid shipping label (Resi) or has same Resi
+                is_continuation = False
+                if p_raw["start_index"] != -1 and prev["end_index"] != -1:
+                    if p_raw["start_index"] == prev["end_index"] + 1:
+                        # If page has no resi, or it matches previous - it's a sequence continue
+                        if not p_raw["is_shipping_label"] or p_raw["resi"] == prev["resi"]:
+                            is_continuation = True
+                
+                if is_continuation:
+                    self.log(f"Menggabungkan Halaman {p_raw['page_number']} ke Halaman {prev['page_number']} (Urutan SKU berlanjut)")
+                    prev["items"].extend(p_raw["items"])
+                    prev["end_index"] = p_raw["end_index"]
+                else:
+                    final_results.append(p_raw)
+
+            results = final_results
                         
         except Exception as e:
             self.log(f"Error pembacaan PDF: {str(e)}")
@@ -354,6 +400,8 @@ class TikTokPDFReader:
         resi_patterns = [
             r'\b(?:GK|IN)-\d+-[A-Z0-9-]+\b',
             r'\bIN-[A-Z0-9-]+\b',
+            r'\bSD-[A-Z0-9-]+\b',
+            r'\bJY\d{9,15}\b',
             r'\b00\d{10,13}\b',
             r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',
             r'\b1\d{12,13}\b',

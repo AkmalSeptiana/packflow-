@@ -14,8 +14,8 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.3.9"
-RELEASE_NOTES = "update penulisan label sicepat & update penulisan nama file"
+CURRENT_VERSION = "2.4.0"
+RELEASE_NOTES = "1. Peningkatan Deteksi Resi Baru Grab Express SAMDAY & JNE YES2. Fitur Smart Merge Halaman (Shopee) mendeteksi daftar SKU terpecah ke halaman kedua.3. Update Sistem Penempatan Pelabelana. Jika pesanan memiliki lebih dari 4 SKU, label akan otomatis dipindahkan ke area WAJIB VIDEO UNBOXING....a.a. Sistem secara cerdas memutihkan (menghilangkan) teks Unboxing yang asli agar label SKU Anda terlihat bersih.b. Auto-Shrink: Ukuran font (maksimal 18) akan mengecil secara otomatis.c. 1-Baris Saja: Untuk pesanan dengan 1 sampai 5 SKU.d. Multi-Baris (Enter): Jika pesanan memiliki 6 SKU atau lebih, aplikasi akan otomatis melakukan Enter pada simbol +"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
