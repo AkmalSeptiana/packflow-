@@ -15,7 +15,7 @@ import tkinter as tk
 from core.updater import AutoUpdater
 
 CURRENT_VERSION = "2.5.1"
-RELEASE_NOTES = "tambah fitur send telegram & tambah variabel deteksi resi anteraja cod"
+RELEASE_NOTES = "perbaikan popup Cara Mengirim ke Telegram"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
@@ -1400,51 +1400,85 @@ class MainWindow(ctk.CTk):
     def _show_telegram_tutorial_popup(self):
         """Show tutorial popup when Chat ID is missing."""
         popup = ctk.CTkToplevel(self)
-        popup.title("Cara Mendapatkan Chat ID Telegram")
-        popup.geometry("520x650")
+        popup.title("Cara Mengirim ke Telegram")
+        popup.geometry("520x780")
         popup.resizable(False, False)
         popup.attributes("-topmost", True)
         
         # Center popup
         x = self.winfo_x() + (self.winfo_width() // 2) - 260
-        y = self.winfo_y() + (self.winfo_height() // 2) - 325
+        y = self.winfo_y() + (self.winfo_height() // 2) - 375
         popup.geometry(f"+{x}+{y}")
         
         container = ctk.CTkFrame(popup, fg_color="transparent")
         container.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Load Tutorial Image
+        def copy_text(label_obj, text_to_copy):
+            self.clipboard_clear()
+            self.clipboard_append(text_to_copy)
+            self.update() 
+            original_text = label_obj.cget("text")
+            label_obj.configure(text="Tersalin", text_color="#10B981")
+            self.after(1000, lambda: label_obj.configure(text=original_text, text_color="#3B82F6"))
+            self.status_bar_str.set(f"Status: Salin '{text_to_copy}' ke Clipboard")
+        
+        # Show Image if exists
         img_path = resource_path("assets/before_sendTele.png")
-        has_img = False
         if os.path.exists(img_path):
             try:
                 from PIL import Image, ImageTk
                 raw_img = Image.open(img_path)
-                # Resize to fit popup
                 w, h = raw_img.size
-                ratio = 480 / w
-                new_h = int(h * ratio)
-                if new_h > 500: # Limit height
-                    ratio = 500 / h
-                    new_h = 500
-                    w = int(w * ratio)
-                else:
-                    w = 480
                 
-                img_resize = raw_img.resize((w, new_h), Image.Resampling.LANCZOS)
+                # Fit to width (popup is 520, container padding is 10x2 = 500 available)
+                target_w = 480 
+                ratio = target_w / w
+                new_h = int(h * ratio)
+                
+                # Limit height so it doesn't push text too far
+                if new_h > 480:
+                    ratio = 480 / h
+                    new_h = 480
+                    target_w = int(w * ratio)
+                
+                img_resize = raw_img.resize((target_w, new_h), Image.Resampling.LANCZOS)
                 photo = ImageTk.PhotoImage(img_resize)
                 img_label = ctk.CTkLabel(container, image=photo, text="")
-                img_label.image = photo # Keep reference
+                img_label.image = photo 
                 img_label.pack(pady=10)
-                has_img = True
             except Exception as e:
                 print(f"Error loading tutorial image: {e}")
+
+        # Text Steps (Interactive)
+        guide_frame = ctk.CTkFrame(container, fg_color="transparent")
+        guide_frame.pack(pady=10, fill="x")
         
-        if not has_img:
-            ctk.CTkLabel(container, text="[Gambar Tutorial Tidak Ditemukan]\n\n"
-                         "Silakan buka @userinfobot di Telegram\nuntuk mendapatkan Chat ID Anda,\nlalu masukkan ke menu Settings.", 
-                         font=("Segoe UI", 14), justify="center").pack(pady=40)
-        
+        # Step 1 with clickable bot
+        f1 = ctk.CTkFrame(guide_frame, fg_color="transparent")
+        f1.pack(fill="x", pady=2)
+        ctk.CTkLabel(f1, text="1. Cari ", font=("Segoe UI", 13)).pack(side="left")
+        b1 = ctk.CTkLabel(f1, text="@PackFlow_ArchiveBot", font=("Segoe UI", 13, "bold", "underline"), 
+                          text_color="#3B82F6", cursor="hand2")
+        b1.pack(side="left")
+        b1.bind("<Button-1>", lambda e: copy_text(b1, "@PackFlow_ArchiveBot"))
+        ctk.CTkLabel(f1, text=" di Telegram, lalu klik START.", font=("Segoe UI", 13)).pack(side="left")
+
+        # Step 2 with clickable bot
+        f2 = ctk.CTkFrame(guide_frame, fg_color="transparent")
+        f2.pack(fill="x", pady=2)
+        ctk.CTkLabel(f2, text="2. Cari ", font=("Segoe UI", 13)).pack(side="left")
+        b2 = ctk.CTkLabel(f2, text="@userinfobot", font=("Segoe UI", 13, "bold", "underline"), 
+                          text_color="#3B82F6", cursor="hand2")
+        b2.pack(side="left")
+        b2.bind("<Button-1>", lambda e: copy_text(b2, "@userinfobot"))
+        ctk.CTkLabel(f2, text=" lalu klik START untuk ID Anda.", font=("Segoe UI", 13)).pack(side="left")
+
+        # Step 3 & 4
+        ctk.CTkLabel(guide_frame, text="3. Salin angka yang muncul (Contoh: 1234567890).", 
+                     font=("Segoe UI", 13), justify="left", anchor="w").pack(fill="x", pady=2)
+        ctk.CTkLabel(guide_frame, text="4. Buka menu Settings di aplikasi ini, lalu masukkan ke Chat ID.", 
+                     font=("Segoe UI", 13), justify="left", anchor="w").pack(fill="x", pady=2)
+
         ctk.CTkButton(container, text="Buka Settings", font=("Segoe UI", 13, "bold"), height=36,
                       fg_color="#2563EB", hover_color="#1D4ED8", command=lambda: [popup.destroy(), self._open_settings()]).pack(pady=10)
         ctk.CTkButton(container, text="Tutup", fg_color="transparent", border_width=1, command=popup.destroy).pack()
