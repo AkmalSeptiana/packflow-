@@ -14,7 +14,7 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.5.0"
+CURRENT_VERSION = "2.5.1"
 RELEASE_NOTES = "tambah fitur send telegram & tambah variabel deteksi resi anteraja cod"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
@@ -1414,7 +1414,7 @@ class MainWindow(ctk.CTk):
         container.pack(fill="both", expand=True, padx=20, pady=20)
         
         # Load Tutorial Image
-        img_path = r"D:\PackFlow\assets\before_sendTele.png"
+        img_path = resource_path("assets/before_sendTele.png")
         has_img = False
         if os.path.exists(img_path):
             try:
