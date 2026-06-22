@@ -14,8 +14,8 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.4.0"
-RELEASE_NOTES = "1. Peningkatan Deteksi Resi Baru Grab Express SAMDAY & JNE YES2. Fitur Smart Merge Halaman (Shopee) mendeteksi daftar SKU terpecah ke halaman kedua.3. Update Sistem Penempatan Pelabelana. Jika pesanan memiliki lebih dari 4 SKU, label akan otomatis dipindahkan ke area WAJIB VIDEO UNBOXING....a.a. Sistem secara cerdas memutihkan (menghilangkan) teks Unboxing yang asli agar label SKU Anda terlihat bersih.b. Auto-Shrink: Ukuran font (maksimal 18) akan mengecil secara otomatis.c. 1-Baris Saja: Untuk pesanan dengan 1 sampai 5 SKU.d. Multi-Baris (Enter): Jika pesanan memiliki 6 SKU atau lebih, aplikasi akan otomatis melakukan Enter pada simbol +"
+CURRENT_VERSION = "2.5.0"
+RELEASE_NOTES = "tambah fitur send telegram & tambah variabel deteksi resi anteraja cod"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
@@ -173,7 +173,9 @@ class MainWindow(ctk.CTk):
             "split_pdf": True,
             "filename_format_bulk": "{nama}_{hari}{bulan}",
             "filename_format_split": "{kota}_{resi}",
-            "theme": "dark"
+            "theme": "dark",
+            "telegram_bot_token": "8738468752:AAHlbWtnuwqnUYLtmPCYqeYrw3eJ-3wqTB0",
+            "telegram_chat_id": ""
         }
 
     def _load_icons(self):
@@ -904,11 +906,19 @@ class MainWindow(ctk.CTk):
         self.table_title_label = ctk.CTkLabel(results_card, textvariable=self.hasil_scan_title_str, font=("Segoe UI", 13, "bold"), text_color="#3B82F6")
         self.table_title_label.grid(row=0, column=0, padx=16, pady=(12, 8), sticky="w")
         
-        # Restore "Salin Semua" button in the table card header
-        self.copy_all_btn = ctk.CTkButton(results_card, text="  Salin Semua", image=self.copy_icon, compound="left", font=("Segoe UI", 11, "bold"), width=120, height=26,
+        # Header Action Buttons
+        self.header_btn_frame = ctk.CTkFrame(results_card, fg_color="transparent")
+        self.header_btn_frame.grid(row=0, column=0, padx=16, pady=(12, 8), sticky="e")
+        
+        self.send_all_tg_btn = ctk.CTkButton(self.header_btn_frame, text="Share", image=self.send_icon, compound="left", font=("Segoe UI", 11, "bold"), width=80, height=26,
+                                             fg_color="#2563EB", hover_color="#1D4ED8", text_color="#FFFFFF", corner_radius=6,
+                                             command=self._send_all_telegram)
+        self.send_all_tg_btn.pack(side="right", padx=(6, 0))
+
+        self.copy_all_btn = ctk.CTkButton(self.header_btn_frame, text="Copy", image=self.copy_icon, compound="left", font=("Segoe UI", 11, "bold"), width=80, height=26,
                                           fg_color=("#E5E7EB", "#1E293B"), border_width=1, border_color=("#D1D5DB", "#374151"), hover_color=("#D1D5DB", "#334155"), text_color="#3B82F6", corner_radius=6,
                                           command=self._copy_all_resi)
-        self.copy_all_btn.grid(row=0, column=0, padx=16, pady=(12, 8), sticky="e")
+        self.copy_all_btn.pack(side="right")
         
         # Table Header Row
         header_table_frame = ctk.CTkFrame(results_card, fg_color=("#F3F4F6", "#1E293B"), height=32, corner_radius=4)
@@ -1155,8 +1165,8 @@ class MainWindow(ctk.CTk):
             # 1. Telegram Button
             tg_btn = ctk.CTkButton(btn_frame, text="", image=self.send_icon, width=32, height=28,
                                    fg_color=("#EFF6FF", "#1E293B"), border_width=1, border_color=("#BFDBFE", "#1D4ED8"), hover_color=("#DBEAFE", "#1E40AF"), corner_radius=5)
-            # Patch command to pass button reference
-            tg_btn.configure(command=lambda b=tg_btn, fp=file_path: self._copy_file_to_clipboard_with_feedback(b, fp))
+            # Patch command to handle Bot Sharing + Tutorial
+            tg_btn.configure(command=lambda b=tg_btn, fp=file_path, r=resi_list, c=city_name: self._handle_telegram_share(b, fp, r, c))
             tg_btn.pack(side="left", padx=2)
             
         # 2. Copy All in City Button
@@ -1206,6 +1216,238 @@ class MainWindow(ctk.CTk):
                 btn.configure(image=self.send_filled_icon)
             except Exception:
                 pass
+
+    def _send_all_telegram(self):
+        """Send all city groups to Telegram one by one with a progress popup."""
+        if not hasattr(self, "last_city_groups") or not self.last_city_groups:
+            self.status_bar_str.set("Status: Tidak ada data untuk dishare.")
+            self.status_label.configure(text_color="#EF4444")
+            return
+            
+        chat_id = self.settings.get("telegram_chat_id", "").strip()
+        if not chat_id:
+            self._show_telegram_tutorial_popup()
+            return
+
+        sorted_cities = sorted(self.last_city_groups.keys())
+        total = len(sorted_cities)
+        
+        # Create a single progress popup for the bulk task
+        popup, pb, status_label = self._create_telegram_progress_popup(
+            title="Mengirim Massal",
+            header="Mengirim Semua Label...",
+            subtext=f"Total: {total} grup kota"
+        )
+
+        def bulk_send_task():
+            self._ui_log(f"Memulai pengiriman massal ke Telegram ({total} grup kota)...")
+            
+            for i, city in enumerate(sorted_cities):
+                items = self.last_city_groups[city]
+                resi_list = [it["combine_text"] for it in items]
+                
+                if self.settings.get("split_pdf"):
+                    file_path = items[0].get("output_path")
+                else:
+                    file_path = self.last_result_path
+
+                if file_path and os.path.exists(file_path):
+                    msg = f"Mengirim grup {i+1}/{total} ({city})..."
+                    self.after(0, lambda m=msg: [
+                        self.status_bar_str.set(f"Status: {m}"),
+                        status_label.configure(text=m)
+                    ])
+                    
+                    self._execute_telegram_send_logic(file_path, resi_list, city)
+                    import time
+                    time.sleep(1.2)
+            
+            self.after(0, lambda: [
+                self.status_bar_str.set(f"Status: Selesai kirim {total} grup ke Telegram!"),
+                popup.destroy()
+            ])
+
+        threading.Thread(target=bulk_send_task, daemon=True).start()
+
+    def _execute_telegram_send_logic(self, file_path, resi_list, city_name):
+        """Reusable low-level logic to send via Bot WITHOUT showing popups."""
+        token = self.settings.get("telegram_bot_token", "").strip()
+        chat_id = self.settings.get("telegram_chat_id", "").strip()
+        
+        import urllib.request
+        try:
+            boundary = '----TelegramBoundary'
+            parts = []
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+            
+            parts.append('--' + boundary)
+            parts.append('Content-Disposition: form-data; name="document"; filename="{}"'.format(os.path.basename(file_path)))
+            parts.append('Content-Type: application/pdf')
+            parts.append('')
+            parts.append(file_content)
+            
+            parts.append('--' + boundary)
+            parts.append('Content-Disposition: form-data; name="chat_id"')
+            parts.append('')
+            parts.append(chat_id)
+            
+            summary = "\n".join(resi_list)
+            parts.append('--' + boundary)
+            parts.append('Content-Disposition: form-data; name="caption"')
+            parts.append('')
+            parts.append(summary)
+
+            parts.append('--' + boundary)
+            parts.append('Content-Disposition: form-data; name="parse_mode"')
+            parts.append('')
+            parts.append('Markdown')
+
+            parts.append('--' + boundary + '--')
+            parts.append('')
+            
+            body = b''
+            for p in parts:
+                if isinstance(p, str):
+                    body += p.encode('utf-8') + b'\r\n'
+                else:
+                    body += p + b'\r\n'
+            
+            url = f"https://api.telegram.org/bot{token}/sendDocument"
+            req = urllib.request.Request(url, data=body)
+            req.add_header('Content-Type', 'multipart/form-data; boundary={}'.format(boundary))
+            
+            with urllib.request.urlopen(req) as response:
+                pass # Sent
+        except Exception as e:
+            self._ui_log(f"Bulk Telegram Error ({city_name}): {str(e)}")
+
+    def _handle_telegram_share(self, btn, file_path, resi_list, city_name):
+        """Logic to send via Bot or show tutorial if Chat ID is missing."""
+        chat_id = self.settings.get("telegram_chat_id", "").strip()
+        token = self.settings.get("telegram_bot_token", "").strip()
+        
+        if not chat_id:
+            self._show_telegram_tutorial_popup()
+            return
+            
+        popup, pb, status_label = self._create_telegram_progress_popup(
+            title="Mengirim Label",
+            header="Mengirim ke Telegram...",
+            subtext=f"Gudang: {city_name.upper()}"
+        )
+        
+        # If Chat ID exists, send via Bot in background
+        self._ui_log(f"Mengirim label {city_name} ke Telegram via Bot...")
+        self.status_bar_str.set("Status: Mengirim label ke Telegram...")
+        
+        # Also copy to clipboard for convenience
+        self._copy_file_to_clipboard(file_path)
+        if btn:
+            btn.configure(image=self.send_filled_icon)
+
+        def send_task():
+            import urllib.request
+            try:
+                self.after(0, lambda: status_label.configure(text="Mengunggah ke Telegram..."))
+                self._execute_telegram_send_logic(file_path, resi_list, city_name)
+                
+                self.after(0, lambda: [
+                    self.status_bar_str.set(f"Status: Berhasil dikirim ke Telegram!"),
+                    popup.destroy()
+                ])
+            except Exception as e:
+                self._ui_log(f"Telegram Bot Error: {str(e)}")
+                self.after(0, lambda: [
+                    self.status_bar_str.set(f"Status: Gagal kirim Bot - {str(e)[:40]}..."),
+                    status_label.configure(text=f"Gagal: {str(e)[:30]}", text_color="#EF4444"),
+                    pb.stop(),
+                    self.after(2000, popup.destroy)
+                ])
+
+        threading.Thread(target=send_task, daemon=True).start()
+
+    def _create_telegram_progress_popup(self, title, header, subtext):
+        """Helper to create a consistent progress popup."""
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry("340x160")
+        popup.resizable(False, False)
+        popup.attributes("-topmost", True)
+        
+        # Center popup
+        x = self.winfo_x() + (self.winfo_width() // 2) - 170
+        y = self.winfo_y() + (self.winfo_height() // 2) - 80
+        popup.geometry(f"+{x}+{y}")
+        
+        container = ctk.CTkFrame(popup, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        ctk.CTkLabel(container, text=header, font=("Segoe UI", 13, "bold"), text_color="#3B82F6").pack(pady=(0, 5))
+        ctk.CTkLabel(container, text=subtext, font=("Segoe UI", 11), text_color=("#4B5563", "#8F9CAE")).pack(pady=(0, 15))
+        
+        pb = ctk.CTkProgressBar(container, width=280, height=8, corner_radius=4, 
+                                 fg_color=("#E5E7EB", "#1F2937"), progress_color="#3B82F6")
+        pb.pack(pady=5)
+        pb.set(0)
+        pb.start()
+        
+        status_label = ctk.CTkLabel(container, text="Menyiapkan data...", font=("Segoe UI", 11))
+        status_label.pack(pady=5)
+        
+        return popup, pb, status_label
+
+    def _show_telegram_tutorial_popup(self):
+        """Show tutorial popup when Chat ID is missing."""
+        popup = ctk.CTkToplevel(self)
+        popup.title("Cara Mendapatkan Chat ID Telegram")
+        popup.geometry("520x650")
+        popup.resizable(False, False)
+        popup.attributes("-topmost", True)
+        
+        # Center popup
+        x = self.winfo_x() + (self.winfo_width() // 2) - 260
+        y = self.winfo_y() + (self.winfo_height() // 2) - 325
+        popup.geometry(f"+{x}+{y}")
+        
+        container = ctk.CTkFrame(popup, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Load Tutorial Image
+        img_path = r"D:\PackFlow\assets\before_sendTele.png"
+        has_img = False
+        if os.path.exists(img_path):
+            try:
+                from PIL import Image, ImageTk
+                raw_img = Image.open(img_path)
+                # Resize to fit popup
+                w, h = raw_img.size
+                ratio = 480 / w
+                new_h = int(h * ratio)
+                if new_h > 500: # Limit height
+                    ratio = 500 / h
+                    new_h = 500
+                    w = int(w * ratio)
+                else:
+                    w = 480
+                
+                img_resize = raw_img.resize((w, new_h), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img_resize)
+                img_label = ctk.CTkLabel(container, image=photo, text="")
+                img_label.image = photo # Keep reference
+                img_label.pack(pady=10)
+                has_img = True
+            except Exception as e:
+                print(f"Error loading tutorial image: {e}")
+        
+        if not has_img:
+            ctk.CTkLabel(container, text="[Gambar Tutorial Tidak Ditemukan]\n\n"
+                         "Silakan buka @userinfobot di Telegram\nuntuk mendapatkan Chat ID Anda,\nlalu masukkan ke menu Settings.", 
+                         font=("Segoe UI", 14), justify="center").pack(pady=40)
+        
+        ctk.CTkButton(container, text="Buka Settings", font=("Segoe UI", 13, "bold"), height=36,
+                      fg_color="#2563EB", hover_color="#1D4ED8", command=lambda: [popup.destroy(), self._open_settings()]).pack(pady=10)
+        ctk.CTkButton(container, text="Tutup", fg_color="transparent", border_width=1, command=popup.destroy).pack()
 
     def _show_about_dialog(self):
         """Show About dialog when version badge is clicked."""
@@ -1658,6 +1900,10 @@ class MainWindow(ctk.CTk):
                 if city not in city_groups:
                     city_groups[city] = []
                 city_groups[city].append(item)
+            
+            # Store for Send All Telegram feature
+            self.last_city_groups = city_groups
+            self.last_result_path = result_path
             
             # Sort cities alphabetically (optional, but good for UX)
             sorted_cities = sorted(city_groups.keys())

@@ -42,28 +42,43 @@ class ShopeePDFReader:
                         r'\bSD-[A-Z0-9-]+\b',                          # Grab Express SD- patterns
                         r'\bJY\d{9,15}\b',                             # JNE YES (JY...)
                         r'\b00\d{10,13}\b',                            # Sicepat (starts with 00)
-                        r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',             # Mangled SiCepat/COD (C0O, 0O, etc)
-                        r'\b1\d{12,13}\b',                             # Anteraja (starts with 1, 13-14 digits)
-                        r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHP|SHPE|NX)[\s:.]*[A-Z0-9]{7,25}', # Alphanumeric with flexible separators
-                        r'\b(?!08)\d{10,20}\b'                         # General numeric fallback - Exclude Indonesian phones (08...)
+                        r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',             # Mangled SiCepat (C0O, 0O, etc)
+                        r'\b(?:COD)?C?11[O0]+\d{6,15}[A-Z0-9]*\b',     # Mangled Anteraja (C11O, 11O, etc)
+                        r'\b1(?:\s*\d){12,14}\b',                      # Anteraja Standard
+                        r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHP|SHPE|NX)[\s:.]*[A-Z0-9]{7,25}', # Alphanumeric
+                        r'\b(?:COD)?(?!08)(?:\s*\d){12,16}\b',         # J&T / SPX Numeric
+                        r'\b(?!08)(?:\s*[A-Z0-9]){10,22}\b'            # General Alphanumeric Fallback (Mangled Resi)
                     ]
                     
                     all_matches = []
                     for pattern in resi_patterns:
                         for m in re.finditer(pattern, text, re.IGNORECASE):
                             val = m.group(0).strip()
-                            if len(val) >= 7:
-                                all_matches.append(val)
+                            # Clean internal spaces immediately for logic but keep format for identification
+                            val_clean = val.replace(" ", "").upper()
+                            
+                            # EXPLICIT GUARD: Skip anything that looks like an Indo Phone No
+                            if val_clean.startswith("08") or val_clean.startswith("628") or val_clean.startswith("+628"):
+                                continue
+                                
+                            if len(val_clean) >= 7:
+                                all_matches.append(val_clean)
                     
                     if all_matches:
-                        # Prioritization Logic: SPXID first, then SiCepat (00, C0O, 0O), then everything else
+                        # Prioritization Logic: SPXID first, then ID, then SiCepat, then Anteraja, then everything else
                         spx_matches = [m for m in all_matches if "SPX" in m.upper()]
-                        sicepat_matches = [m for m in all_matches if m.startswith("00") or m.startswith("C0O") or m.startswith("0O")]
+                        id_matches = [m for m in all_matches if m.startswith("ID") and len(m) >= 10]
+                        sicepat_matches = [m for m in all_matches if any(m.startswith(p) for p in ["00", "0O", "C0O"]) and len(re.sub(r'[^0-9]', '', m)) >= 12]
+                        anteraja_matches = [m for m in all_matches if (m.startswith("1") or m.startswith("C1")) and 12 <= len(re.sub(r'[^0-9]', '', m)) <= 17]
                         
                         if spx_matches:
                             resi_val = spx_matches[0]
+                        elif id_matches:
+                            resi_val = id_matches[0]
                         elif sicepat_matches:
                             resi_val = sicepat_matches[0]
+                        elif anteraja_matches:
+                            resi_val = anteraja_matches[0]
                         else:
                             resi_val = all_matches[0]
                         
@@ -123,12 +138,31 @@ class ShopeePDFReader:
                             else:
                                 clean_val = re.sub(r'[^A-Z0-9]', '', resi_val.upper())
                             
-                            # If it's likely a numeric-mostly resi (like Sicepat), keep only digits
-                            # unless it's a known format with letters.
-                            if len(re.sub(r'[^0-9]', '', clean_val)) >= 10:
-                                # If it has leading '00', '0O', or mangled 'C0O', we want the numeric body
-                                if any(clean_val.startswith(p) for p in ['00', '0O', 'C0O']):
-                                    clean_val = re.sub(r'[^0-9]', '', clean_val)
+                            # If it's likely a numeric-mostly resi (like Sicepat/Anteraja), keep only digits
+                            # We check if it looks like one of those numeric-primary formats
+                            looks_numeric_primary = any(clean_val.startswith(p) for p in ['00', '0O', 'C0', 'C1', '11', '10', 'O0'])
+                            
+                            if len(re.sub(r'[^0-9]', '', clean_val)) >= 9 and looks_numeric_primary:
+                                # STRATEGY: Try pure numeric extraction first (strips O, D, C noise)
+                                numeric_only = re.sub(r'[^0-9]', '', clean_val)
+                                
+                                # If pure numeric matches standard lengths, it's usually the most accurate
+                                if 10 <= len(numeric_only) <= 15:
+                                    clean_val = numeric_only
+                                else:
+                                    # Fallback to conversion if pure numeric is too short (handles O->0, I->1)
+                                    clean_val = clean_val.replace('O', '0').replace('I', '1').replace('D', '0')
+                                    clean_val = re.sub(r'^C+', '', clean_val)
+                                    clean_val = re.sub(r'^COD', '', clean_val)
+                                    
+                                    # Final digit strip for Sicepat/Anteraja logic
+                                    if any(clean_val.startswith(p) for p in ['00', '0O', 'C00', '11']):
+                                        clean_val = re.sub(r'[^0-9]', '', clean_val)
+                            elif "ID" in clean_val.upper() or "SPX" in clean_val.upper():
+                                # IMPORTANT: For Shopee Express / ID formats, preserve the full Alphanumeric
+                                # Just clean redundant prefixes if attached improperly
+                                clean_val = re.sub(r'^COD', '', clean_val)
+                                clean_val = re.sub(r'^C(?=ID)', '', clean_val) # Remove 'C' if it's 'CID...'
                             
                             page_data["resi"] = clean_val
                             
@@ -286,18 +320,32 @@ class ShopeePDFReader:
                         self.log(f"Line: '{line_text}'")
                         
                         # Filter out table noise and other text sections
-                        noise_keywords = ["SKU", "NAMA PRODUK", "QTY", "JUMLAH", "#", "TOTAL", "PESANAN", 
+                        upper_line = line_text.upper()
+                        noise_keywords = ["NAMA PRODUK", "JUMLAH", "TOTAL", "PESANAN", 
                                          "CATATAN PEMBELI", "PESAN DARI PEMBELI", "PESAN:", "WAJIB VIDEO"]
-                        if any(kw in line_text.upper() for kw in noise_keywords):
+                        if any(kw in upper_line for kw in noise_keywords):
                             continue
+                            
+                        # If a line contains BOTH SKU and QTY, it is definitely a header
+                        if "SKU" in upper_line and "QTY" in upper_line:
+                            continue
+                            
+                        # Deep clean the line from header remnants at the start
+                        # This handles cases like "SKU Qty 8 BROSUR..." -> "8 BROSUR..."
+                        line_text = re.sub(r'^[#\s]*SKU[\s]*QTY[\s]*', '', line_text, flags=re.IGNORECASE)
+                        line_text = re.sub(r'^[#\s]*SKU[\s]*', '', line_text, flags=re.IGNORECASE)
+                        line_text = re.sub(r'^[#\s]*QTY[\s]*', '', line_text, flags=re.IGNORECASE)
+                        line_text = re.sub(r'^#\s*', '', line_text)
+                        line_text = line_text.strip()
 
                         # Robust Split for Qty vs SKU
                         parts = line_text.split()
                         if len(parts) < 1: continue
 
-                        # A. Skip Row Index (First part if digit and separated)
-                        if parts[0].isdigit() and len(parts) > 1:
-                            row_idx = int(parts[0])
+                        # A. Skip Row Index (First part if digit or starts with #)
+                        first_token = parts[0].lstrip('#').strip()
+                        if first_token.isdigit() and len(parts) > 1:
+                            row_idx = int(first_token)
                             if page_data["start_index"] == -1:
                                 page_data["start_index"] = row_idx
                             page_data["end_index"] = row_idx
@@ -334,15 +382,22 @@ class ShopeePDFReader:
                 
                 prev = final_results[-1]
                 
-                # Continuation detection logic:
-                # 1. Next page starts with # X+1 where prev page ended with # X
-                # 2. Next page doesn't have its own valid shipping label (Resi) or has same Resi
+                # Continuation detection logic (Improved):
+                # 1. Next page starts with # X+1 where prev page ended with # X (Strict)
+                # 2. Next page doesn't have its own valid shipping label (Resi) and contains items (Lenient)
                 is_continuation = False
+                
+                # Check sequence - This is the STRONGEST signal for Shopee continuation
                 if p_raw["start_index"] != -1 and prev["end_index"] != -1:
                     if p_raw["start_index"] == prev["end_index"] + 1:
-                        # If page has no resi, or it matches previous - it's a sequence continue
-                        if not p_raw["is_shipping_label"] or p_raw["resi"] == prev["resi"]:
-                            is_continuation = True
+                        # ABSOLUTE MERGE: If the row index (#) continues perfectly (e.g. 7 to 8),
+                        # it is part of the same order, even if some header info repeats.
+                        is_continuation = True
+                
+                # Fallback: No resi but has items - most likely continuation of Shopee long list
+                if not is_continuation:
+                    if not p_raw.get("is_shipping_label") and p_raw.get("items"):
+                        is_continuation = True
                 
                 if is_continuation:
                     self.log(f"Menggabungkan Halaman {p_raw['page_number']} ke Halaman {prev['page_number']} (Urutan SKU berlanjut)")

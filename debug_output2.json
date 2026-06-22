@@ -1,0 +1,113 @@
+{
+  "total_pages": 2,
+  "page_1": {
+    "num_lines": 26,
+    "lines": [
+      "STD No:002",
+      "T - 54'",
+      "EPA1-MH-02",
+      "SPXID060942716346",
+      "Penerima:",
+      "Pengirim:Abdul herbal official store KOTA SAMARINDA",
+      "082199142414",
+      "RTS-SGJ-AMHUB",
+      "Nama Toko:Abdul Herbal Official Store Dibuat pada:2026-06-17 19:29",
+      "Kirim:- | - Kirim Sebelum:2026-06-18 23:59 0",
+      "Kirim 1 2",
+      "Retur 1 2",
+      "Total",
+      "12",
+      "260617BK5HBSCY Produk",
+      "~",
+      "WAJIB VIDEO UNBOXING SAAT PAKET DITERIMA!",
+      "~",
+      "# SKU Qty",
+      "1 SKIN-ARY 1",
+      "2 BROSUR-ARY 1",
+      "3 BROSUR-ARY 1",
+      "4 BROSUR-ARY 1",
+      "5 WBW-ARY 1",
+      "6 BROSUR-ARY 1",
+      "7 BROSUR-ARY 1"
+    ],
+    "indices_found": [
+      {
+        "index": 82199142414,
+        "line": "082199142414"
+      },
+      {
+        "index": 12,
+        "line": "12"
+      },
+      {
+        "index": 1,
+        "line": "1 SKIN-ARY 1"
+      },
+      {
+        "index": 2,
+        "line": "2 BROSUR-ARY 1"
+      },
+      {
+        "index": 3,
+        "line": "3 BROSUR-ARY 1"
+      },
+      {
+        "index": 4,
+        "line": "4 BROSUR-ARY 1"
+      },
+      {
+        "index": 5,
+        "line": "5 WBW-ARY 1"
+      },
+      {
+        "index": 6,
+        "line": "6 BROSUR-ARY 1"
+      },
+      {
+        "index": 7,
+        "line": "7 BROSUR-ARY 1"
+      }
+    ],
+    "sku_header": {
+      "line_idx": 18,
+      "text": "# SKU Qty"
+    }
+  },
+  "page_2": {
+    "num_lines": 6,
+    "lines": [
+      "# SKU Qty",
+      "8 BROSUR-ARY 1",
+      "9 SQU-ARY 1",
+      "10 BROSUR-ARY 1",
+      "11 BROSUR-ARY 1",
+      "12 BROSUR-ARY 1"
+    ],
+    "indices_found": [
+      {
+        "index": 8,
+        "line": "8 BROSUR-ARY 1"
+      },
+      {
+        "index": 9,
+        "line": "9 SQU-ARY 1"
+      },
+      {
+        "index": 10,
+        "line": "10 BROSUR-ARY 1"
+      },
+      {
+        "index": 11,
+        "line": "11 BROSUR-ARY 1"
+      },
+      {
+        "index": 12,
+        "line": "12 BROSUR-ARY 1"
+      }
+    ],
+    "sku_header": {
+      "line_idx": 0,
+      "text": "# SKU Qty"
+    }
+  }
+}

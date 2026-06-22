@@ -81,6 +81,23 @@ class SettingsFrame(ctk.CTkFrame):
         self.color_option = ctk.CTkOptionMenu(label_card, values=["Red", "Black", "Blue", "Green"], font=("Segoe UI", 12), corner_radius=6)
         self.color_option.grid(row=3, column=1, padx=16, pady=6, sticky="ew")
         
+        # Card 3: INTEGRASI TELEGRAM
+        tg_card = ctk.CTkFrame(scroll_body, fg_color=("#FFFFFF", "#111827"), border_width=1, border_color=("#E5E7EB", "#1F2937"), corner_radius=10)
+        tg_card.pack(fill="x", pady=10)
+        tg_card.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(tg_card, text="  INTEGRASI TELEGRAM BOT", image=self.master.send_icon, compound="left", font=("Segoe UI", 13, "bold"), text_color="#3B82F6").grid(row=0, column=0, columnspan=2, padx=16, pady=(12, 6), sticky="w")
+        
+        ctk.CTkLabel(tg_card, text="Bot Token:", font=("Segoe UI", 12), text_color=("#1F2937", "#FFFFFF")).grid(row=1, column=0, padx=16, pady=6, sticky="w")
+        self.tg_token_entry = ctk.CTkEntry(tg_card, font=("Segoe UI", 12), fg_color=("#F9FAFB", "#1F2937"), border_color=("#D1D5DB", "#374151"), text_color=("#1F2937", "#FFFFFF"), corner_radius=6)
+        self.tg_token_entry.grid(row=1, column=1, padx=16, pady=6, sticky="ew")
+        
+        ctk.CTkLabel(tg_card, text="Chat ID:", font=("Segoe UI", 12), text_color=("#1F2937", "#FFFFFF")).grid(row=2, column=0, padx=16, pady=6, sticky="w")
+        self.tg_chat_id_entry = ctk.CTkEntry(tg_card, font=("Segoe UI", 12), fg_color=("#F9FAFB", "#1F2937"), border_color=("#D1D5DB", "#374151"), text_color=("#1F2937", "#FFFFFF"), corner_radius=6)
+        self.tg_chat_id_entry.grid(row=2, column=1, padx=16, pady=6, sticky="ew")
+        
+        ctk.CTkLabel(tg_card, text="Tips: Gunakan @userinfobot untuk mengetahui Chat ID Anda.", font=("Segoe UI", 11, "italic"), text_color="#8F9CAE").grid(row=3, column=0, columnspan=2, padx=16, pady=(0, 12), sticky="w")
+        
         
         # 3. Footer Frame (Buttons)
         footer_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -104,7 +121,9 @@ class SettingsFrame(ctk.CTkFrame):
         self.font_family_option.set(self.settings.get("label_font_family", "Arial-Bold"))
         self.font_size_entry.insert(0, str(self.settings.get("label_font_size", 18)))
         self.color_option.set(self.settings.get("label_color", "Red"))
-
+        
+        self.tg_token_entry.insert(0, self.settings.get("telegram_bot_token", ""))
+        self.tg_chat_id_entry.insert(0, self.settings.get("telegram_chat_id", ""))
 
         whitelist = self.settings.get("sku_whitelist", [])
         self.whitelist_text.insert("0.0", ", ".join(whitelist))
@@ -121,10 +140,8 @@ class SettingsFrame(ctk.CTkFrame):
                 self.settings["label_font_size"] = 18
                 
             self.settings["label_color"] = self.color_option.get()
-
-            
-            raw_items = self.whitelist_text.get("0.0", "end").replace("\n", "").split(",")
-            self.settings["sku_whitelist"] = [s.strip().upper() for s in raw_items if s.strip()]
+            self.settings["telegram_bot_token"] = self.tg_token_entry.get().strip()
+            self.settings["telegram_chat_id"] = self.tg_chat_id_entry.get().strip()
             
             config_dir = os.path.dirname(self.settings_path)
             if config_dir and not os.path.exists(config_dir):

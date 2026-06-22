@@ -1,0 +1,56 @@
+
+=== PAGE 1 ===
+Lines (26):
+  [0] STD No:002
+  [1] T - 54'
+  [2] EPA1-MH-02
+  [3] SPXID060942716346
+  [4] Penerima:
+  [5] Pengirim:Abdul herbal official store KOTA SAMARINDA
+  [6] 082199142414
+  [7] RTS-SGJ-AMHUB
+  [8] Nama Toko:Abdul Herbal Official Store Dibuat pada:2026-06-17 19:29
+  [9] Kirim:- | - Kirim Sebelum:2026-06-18 23:59 0
+  [10] Kirim 1 2
+  [11] Retur 1 2
+  [12] Total
+  [13] 12
+  [14] 260617BK5HBSCY Produk
+  [15] ~
+  [16] WAJIB VIDEO UNBOXING SAAT PAKET DITERIMA!
+  [17] ~
+  [18] # SKU Qty
+  [19] 1 SKIN-ARY 1
+  [20] 2 BROSUR-ARY 1
+  [21] 3 BROSUR-ARY 1
+  [22] 4 BROSUR-ARY 1
+  [23] 5 WBW-ARY 1
+  [24] 6 BROSUR-ARY 1
+  [25] 7 BROSUR-ARY 1
+
+  >>> SKU HEADER at line [18]: '# SKU Qty'
+  >>> INDEX at line [6]: #082199142414 -> '082199142414'
+  >>> INDEX at line [13]: #12 -> '12'
+  >>> INDEX at line [19]: #1 -> '1 SKIN-ARY 1'
+  >>> INDEX at line [20]: #2 -> '2 BROSUR-ARY 1'
+  >>> INDEX at line [21]: #3 -> '3 BROSUR-ARY 1'
+  >>> INDEX at line [22]: #4 -> '4 BROSUR-ARY 1'
+  >>> INDEX at line [23]: #5 -> '5 WBW-ARY 1'
+  >>> INDEX at line [24]: #6 -> '6 BROSUR-ARY 1'
+  >>> INDEX at line [25]: #7 -> '7 BROSUR-ARY 1'
+
+=== PAGE 2 ===
+Lines (6):
+  [0] # SKU Qty
+  [1] 8 BROSUR-ARY 1
+  [2] 9 SQU-ARY 1
+  [3] 10 BROSUR-ARY 1
+  [4] 11 BROSUR-ARY 1
+  [5] 12 BROSUR-ARY 1
+
+  >>> SKU HEADER at line [0]: '# SKU Qty'
+  >>> INDEX at line [1]: #8 -> '8 BROSUR-ARY 1'
+  >>> INDEX at line [2]: #9 -> '9 SQU-ARY 1'
+  >>> INDEX at line [3]: #10 -> '10 BROSUR-ARY 1'
+  >>> INDEX at line [4]: #11 -> '11 BROSUR-ARY 1'
+  >>> INDEX at line [5]: #12 -> '12 BROSUR-ARY 1'

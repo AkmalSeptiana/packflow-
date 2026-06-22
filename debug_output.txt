@@ -1,0 +1,40 @@
+
+--- PAGE 1 ---
+RAW TEXT (total chars: 385)
+REG No:001
+SLJB0 | BDG
+C11O0039513926D95
+Penerima:
+Pengirim:Aryanto Herbal Official Store KOTA BANDUNG
+082118448317
+Nama Toko:Aryanto Herbal Official Store Dibuat pada:2026-06-22 13:24
+COD:Rp 99.704 Kirim:Pick Up | - Kirim Sebelum:2026-06-23 23:59 0
+Kirim 1 2
+Retur 1 2
+Total
+4
+260622QH3YF1YJ Produk
+~
+WAJIB VIDEO UNBOXING SAAT PAKET DITERIMA!
+~
+# SKU Qty
+1 IFI-ARY 1
+2 — 1
+3 — 1
+4 — 1
+------------------------------
+POTENTIAL SEQUENCES:
+  Raw: 'BDG
+C11O0039513926D95
+P' -> Clean: 'BDGC11O0039513926D95P'
+  Raw: 'KOTA BANDUNG
+082118448317
+N' -> Clean: 'KOTABANDUNG082118448317N'
+  Raw: '2026-06-22 13' -> Clean: '2026-06-2213'
+  Raw: '2026-06-23 23' -> Clean: '2026-06-2323'
+  Raw: '4
+260622QH3YF1YJ P' -> Clean: '4260622QH3YF1YJP'
+  Raw: 'WAJIB VIDEO UNBOXING SAAT PAK' -> Clean: 'WAJIBVIDEOUNBOXINGSAATPAK'
+  Raw: 'ET DITERIMA' -> Clean: 'ETDITERIMA'
+  Raw: '1 IFI-ARY 1
+2' -> Clean: '1IFI-ARY12'
