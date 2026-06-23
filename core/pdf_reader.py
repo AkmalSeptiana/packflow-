@@ -65,25 +65,37 @@ class ShopeePDFReader:
                                 all_matches.append(val_clean)
                     
                     if all_matches:
-                        # Prioritization Logic: SPXID first, then ID, then SiCepat, then Anteraja, then everything else
+                        # Prioritization Logic: SPXID -> ID -> Ninja -> Instant -> Anteraja -> SiCepat
                         spx_matches = [m for m in all_matches if "SPX" in m.upper()]
                         id_matches = [m for m in all_matches if m.startswith("ID") and len(m) >= 10]
-                        sicepat_matches = [m for m in all_matches if any(m.startswith(p) for p in ["00", "0O", "C0O"]) and len(re.sub(r'[^0-9]', '', m)) >= 12]
-                        anteraja_matches = [m for m in all_matches if (m.startswith("1") or m.startswith("C1")) and 12 <= len(re.sub(r'[^0-9]', '', m)) <= 17]
+                        ninja_matches = [m for m in all_matches if m.startswith("SHP") and len(m) >= 10]
+                        instant_matches = [m for m in all_matches if (m.startswith("31") or m.startswith("32")) and len(m) >= 15]
+                        anteraja_matches = [m for m in all_matches if (m.startswith("11") or m.startswith("C11")) and 12 <= len(re.sub(r'[^0-9]', '', m)) <= 17]
+                        sicepat_matches = [m for m in all_matches if any(m.startswith(p) for p in ["00", "0O", "C0O"]) and not m.startswith("0011") and not m.startswith("0031") and len(re.sub(r'[^0-9]', '', m)) >= 12]
                         
                         if spx_matches:
                             resi_val = spx_matches[0]
                         elif id_matches:
                             resi_val = id_matches[0]
-                        elif sicepat_matches:
-                            resi_val = sicepat_matches[0]
+                        elif ninja_matches:
+                            resi_val = ninja_matches[0]
+                        elif instant_matches:
+                            resi_val = instant_matches[0]
                         elif anteraja_matches:
                             resi_val = anteraja_matches[0]
+                        elif sicepat_matches:
+                            resi_val = sicepat_matches[0]
                         else:
-                            resi_val = all_matches[0]
+                            # Fallback but avoid common headers if possible
+                            candidates = [m for m in all_matches if not m.startswith("001") and not m.startswith("002")]
+                            resi_val = candidates[0] if candidates else all_matches[0]
                         
                         # --- DEEP CLEAN SELECTION ---
-                        # Remove common PDF noise that gets stuck to the resi
+                        # 1. Strip sequence numbers (like No:001) that are sometimes merged into the resi text
+                        # Only strip if it's clearly redundant noise (e.g. 001 followed by resi start 11, 00, 31, 32)
+                        resi_val = re.sub(r'^(?:No[:\s]*)?00\d(?:\s*(?=11|00|31|32))', '', resi_val, flags=re.IGNORECASE)
+                        
+                        # 2. Remove other common PDF noise symbols
                         for noise in [":", ".", ",", "(", ")", "COD", "NON-COD", "ECO", "REG"]:
                             resi_val = re.sub(fr'\b{re.escape(noise)}\b', ' ', resi_val, flags=re.IGNORECASE)
                             resi_val = resi_val.replace(noise, " ")

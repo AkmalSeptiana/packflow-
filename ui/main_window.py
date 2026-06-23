@@ -14,8 +14,8 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.5.1"
-RELEASE_NOTES = "perbaikan popup Cara Mengirim ke Telegram"
+CURRENT_VERSION = "2.5.4"
+RELEASE_NOTES = "perbaikan resi anteraja, jne & instant, tambah deteksi resi ninjaExpress, tambah fitur Reset Scroll Otomatis"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
@@ -1727,6 +1727,13 @@ class MainWindow(ctk.CTk):
         for row in self.result_rows:
             row.destroy()
         self.result_rows = []
+        
+        # Reset scroll position to top
+        try:
+            self.results_frame._parent_canvas.yview_moveto(0)
+        except Exception:
+            pass
+            
         self.all_resi = []
         if hasattr(self, "smooth_progress_bar"):
             self.smooth_progress_bar.set(0)
