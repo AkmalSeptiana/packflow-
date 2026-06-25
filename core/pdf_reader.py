@@ -37,16 +37,17 @@ class ShopeePDFReader:
 
                     # 1. Extract Order Info (Prioritizing Various Providers)
                     resi_patterns = [
-                        r'\b(?:GK|IN)-\d+-[A-Z0-9-]+\b',               # Instant GK- or IN- patterns
-                        r'\bIN-[A-Z0-9-]+\b',                          # Other IN- formats
-                        r'\bSD-[A-Z0-9-]+\b',                          # Grab Express SD- patterns
+                        r'\b(?:GK|IN|SD)-\d+-[A-Z0-9-]+\b',            # Instant/Grab GK-, IN-, SD- patterns
+                        r'\b(?:GK|IN|SD)-[A-Z0-9-]+\b',                # Other Instant formats
+                        r'\b3[12]\d{17,20}\b',                         # Instant Numeric (ShopeeFood/Grab/Gojek 31/32...)
                         r'\bJY\d{9,15}\b',                             # JNE YES (JY...)
                         r'\b00\d{10,13}\b',                            # Sicepat (starts with 00)
                         r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',             # Mangled SiCepat (C0O, 0O, etc)
+                        r'\b11\d{11,12}\b',                            # Anteraja (strictly 13-14 digits starting with 11)
                         r'\b(?:COD)?C?11[O0]+\d{6,15}[A-Z0-9]*\b',     # Mangled Anteraja (C11O, 11O, etc)
-                        r'\b1(?:\s*\d){12,14}\b',                      # Anteraja Standard
+                        r'\b1(?:\s*\d){12,15}\b',                      # Anteraja Standard / Other Numeric 1...
                         r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHP|SHPE|NX)[\s:.]*[A-Z0-9]{7,25}', # Alphanumeric
-                        r'\b(?:COD)?(?!08)(?:\s*\d){12,16}\b',         # J&T / SPX Numeric
+                        r'\b(?:COD)?(?!08)(?:\s*\d){12,22}\b',         # J&T / SPX / Instant Numeric
                         r'\b(?!08)(?:\s*[A-Z0-9]){10,22}\b'            # General Alphanumeric Fallback (Mangled Resi)
                     ]
                     
@@ -57,21 +58,26 @@ class ShopeePDFReader:
                             # Clean internal spaces immediately for logic but keep format for identification
                             val_clean = val.replace(" ", "").upper()
                             
-                            # EXPLICIT GUARD: Skip anything that looks like an Indo Phone No
-                            if val_clean.startswith("08") or val_clean.startswith("628") or val_clean.startswith("+628"):
+                            # EXPLICIT GUARD: Skip anything that looks like an Indo Phone No or SKU noise
+                            if val_clean.startswith(("08", "628", "+628")):
+                                continue
+                            
+                            # Skip strings that are likely SKU/Table noise (contain keywords like KIRIM or RETUR)
+                            if any(x in val_clean for x in ["KIRIM", "RETUR", "PCS", "PACK"]):
                                 continue
                                 
                             if len(val_clean) >= 7:
                                 all_matches.append(val_clean)
                     
                     if all_matches:
-                        # Prioritization Logic: SPXID -> ID -> Ninja -> Instant -> Anteraja -> SiCepat
+                        # Prioritization Logic: SPXID -> ID -> Ninja -> Instant -> Sameday (Grab) -> Anteraja -> SiCepat
                         spx_matches = [m for m in all_matches if "SPX" in m.upper()]
                         id_matches = [m for m in all_matches if m.startswith("ID") and len(m) >= 10]
                         ninja_matches = [m for m in all_matches if m.startswith("SHP") and len(m) >= 10]
                         instant_matches = [m for m in all_matches if (m.startswith("31") or m.startswith("32")) and len(m) >= 15]
-                        anteraja_matches = [m for m in all_matches if (m.startswith("11") or m.startswith("C11")) and 12 <= len(re.sub(r'[^0-9]', '', m)) <= 17]
-                        sicepat_matches = [m for m in all_matches if any(m.startswith(p) for p in ["00", "0O", "C0O"]) and not m.startswith("0011") and not m.startswith("0031") and len(re.sub(r'[^0-9]', '', m)) >= 12]
+                        sameday_matches = [m for m in all_matches if any(m.startswith(p) for p in ["SD-", "IN-", "GK-"])]
+                        anteraja_matches = [m for m in all_matches if (m.startswith("11") or m.startswith("C11")) and 13 <= len(re.sub(r'[^0-9]', '', m)) <= 14]
+                        sicepat_matches = [m for m in all_matches if any(m.startswith(p) for p in ["00", "0O", "C0O"]) and not m.startswith("0011") and not m.startswith("0031") and not any(m.startswith(p) for p in ["SD-", "IN-", "GK-"]) and len(re.sub(r'[^0-9]', '', m)) >= 12]
                         
                         if spx_matches:
                             resi_val = spx_matches[0]
@@ -81,6 +87,8 @@ class ShopeePDFReader:
                             resi_val = ninja_matches[0]
                         elif instant_matches:
                             resi_val = instant_matches[0]
+                        elif sameday_matches:
+                            resi_val = sameday_matches[0]
                         elif anteraja_matches:
                             resi_val = anteraja_matches[0]
                         elif sicepat_matches:
@@ -91,9 +99,10 @@ class ShopeePDFReader:
                             resi_val = candidates[0] if candidates else all_matches[0]
                         
                         # --- DEEP CLEAN SELECTION ---
-                        # 1. Strip sequence numbers (like No:001) that are sometimes merged into the resi text
-                        # Only strip if it's clearly redundant noise (e.g. 001 followed by resi start 11, 00, 31, 32)
-                        resi_val = re.sub(r'^(?:No[:\s]*)?00\d(?:\s*(?=11|00|31|32))', '', resi_val, flags=re.IGNORECASE)
+                        # 1. Strip sequence numbers (like No:001, No:012) that are sometimes merged into the resi text
+                        # Matches "No:012" or "012" at the start, only if it starts with '0' (to avoid stripping Anteraja '11')
+                        # and followed by valid resi starts (11, 00, 31, 32)
+                        resi_val = re.sub(r'^(?:No[:\s]*)?0\d{1,2}(?:\s*(?=11|00|31|32))', '', resi_val, flags=re.IGNORECASE)
                         
                         # 2. Remove other common PDF noise symbols
                         for noise in [":", ".", ",", "(", ")", "COD", "NON-COD", "ECO", "REG"]:

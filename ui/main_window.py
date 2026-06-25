@@ -15,7 +15,7 @@ import tkinter as tk
 from core.updater import AutoUpdater
 
 CURRENT_VERSION = "2.5.4"
-RELEASE_NOTES = "perbaikan resi anteraja, jne & instant, tambah deteksi resi ninjaExpress, tambah fitur Reset Scroll Otomatis"
+RELEASE_NOTES = "PERBAIKI KESALAHAN PENULISAN RESI INSTANT"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
@@ -1828,7 +1828,15 @@ class MainWindow(ctk.CTk):
                     kendala_reasons.append("Posisi Tabel SKU Tidak Ditemukan")
                 
                 num = page.get("nomor_pengiriman") or resi_val or "N/A"
-                items_formatted = ",".join([f"{item['total_qty']},{item['name']}" for item in parsed_items]) if parsed_items else "Tanpa SKU"
+                
+                # Aggregate duplicate SKUs for clean UI display
+                aggregated_display = {}
+                for item in parsed_items:
+                    name = item['name']
+                    aggregated_display[name] = aggregated_display.get(name, 0) + item['total_qty']
+                
+                items_formatted_list = [f"{qty},{name}" for name, qty in aggregated_display.items()]
+                items_formatted = ",".join(items_formatted_list) if items_formatted_list else "Tanpa SKU"
                 
                 if has_kendala:
                     combine_text = f"[KENDALA: {', '.join(kendala_reasons)}] Halaman {page['page_number']} (Resi: {resi_val or 'N/A'}, SKU: {items_formatted})"
