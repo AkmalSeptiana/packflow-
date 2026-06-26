@@ -32,7 +32,12 @@ class AutoUpdater:
             self.is_checking = True
             try:
                 url = f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/releases/latest"
-                response = requests.get(url, timeout=10)
+                headers = {
+                    "User-Agent": "PackFlow-App/1.0",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                }
+                response = requests.get(url, headers=headers, timeout=10)
                 if response.status_code == 200:
                     data = response.json()
                     latest_version = data.get("tag_name", "").strip().lower().replace('v', '')
@@ -49,6 +54,12 @@ class AutoUpdater:
                     else:
                         self.log(f"Aplikasi sudah versi terbaru ({self.current_version})")
                         callback(False, None)
+                elif response.status_code == 403:
+                    self.log("Cek update dilewati: GitHub API rate limit tercapai (akan coba lagi nanti)")
+                    callback(False, None)
+                elif response.status_code == 404:
+                    self.log("Cek update gagal: Repository tidak ditemukan atau belum ada release")
+                    callback(False, None)
                 else:
                     self.log(f"Gagal cek update: Status {response.status_code}")
                     callback(False, None)

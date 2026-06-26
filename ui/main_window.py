@@ -14,8 +14,8 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.5.4"
-RELEASE_NOTES = "PERBAIKI KESALAHAN PENULISAN RESI INSTANT"
+CURRENT_VERSION = "2.5.5"
+RELEASE_NOTES = "update dan upgrade beberapa nomor resi"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
@@ -127,6 +127,7 @@ class MainWindow(ctk.CTk):
         self._setup_ui()
         self._create_loading_animation()
         self._animate_welcome_slide()
+        self._animate_splash_background()
         
         # Initialize Auto Updater
         # Menggunakan akun GitHub asli Anda: AkmalSeptiana/packflow-
@@ -333,14 +334,26 @@ class MainWindow(ctk.CTk):
         return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
 
     def _draw_gradient(self, canvas, width, height, color1, color2, color3=None):
-        canvas.delete("gradient")
         r1, g1, b1 = self._hex_to_rgb(color1)
         r2, g2, b2 = self._hex_to_rgb(color2)
-        if color3:
-            r3, g3, b3 = self._hex_to_rgb(color3)
+        r3, g3, b3 = self._hex_to_rgb(color3) if color3 else (r2, g2, b2)
         
-        step = 4
-        for y in range(0, height, step):
+        step = 16 # Optimized step for performance
+        existing_bars = canvas.find_withtag("gradient")
+        num_bars = (height // step) + 1
+        
+        # If bars don't exist or count mismatch (resize), recreate them
+        if len(existing_bars) != num_bars:
+            canvas.delete("gradient")
+            for i in range(num_bars):
+                y = i * step
+                canvas.create_rectangle(0, y, width, y + step, fill="#000000", outline="", tags="gradient")
+            canvas.tag_lower("gradient")
+            existing_bars = canvas.find_withtag("gradient")
+        
+        # Update colors of existing bars (High performance)
+        for i, bar_id in enumerate(existing_bars):
+            y = i * step
             ratio = y / float(height) if height > 0 else 0
             if color3:
                 if ratio < 0.5:
@@ -359,8 +372,7 @@ class MainWindow(ctk.CTk):
                 b = int(b1 + (b2 - b1) * ratio)
                 
             color = f"#{r:02x}{g:02x}{b:02x}"
-            canvas.create_rectangle(0, y, width, y + step, fill=color, outline=color, tags="gradient")
-        canvas.tag_lower("gradient")
+            canvas.itemconfig(bar_id, fill=color, outline=color)
 
     def _get_gradient_color(self, y_ratio):
         # Cap y_ratio to [0.0, 1.0]
@@ -383,10 +395,21 @@ class MainWindow(ctk.CTk):
         return f"#{r:02x}{g:02x}{b:02x}"
 
     def _on_canvas_configure(self, event):
-        self._draw_gradient(self.splash_canvas, event.width, event.height, "#080B11", "#1E1B4B", "#0F172A")
+        if event:
+            w, h = event.width, event.height
+        else:
+            w = self.splash_canvas.winfo_width()
+            h = self.splash_canvas.winfo_height()
+            
+        # Use animated colors if available, otherwise fallback to defaults
+        c1 = getattr(self, "_current_c1", "#080B11")
+        c2 = getattr(self, "_current_c2", "#1E1B4B")
+        c3 = getattr(self, "_current_c3", "#0F172A")
+            
+        self._draw_gradient(self.splash_canvas, w, h, c1, c2, c3)
         
         # Center welcome, loading, and footer items horizontally if window changes size
-        center_x = event.width / 2
+        center_x = w / 2
         
         # Adjust welcome items
         if hasattr(self, "welcome_logo_item"):
@@ -448,7 +471,79 @@ class MainWindow(ctk.CTk):
             self.after(14, lambda: self._animate_welcome_slide(next_offset, target_offset))
         else:
             # Final alignment check
-            pass
+            self._on_canvas_configure(None)
+
+    def _animate_splash_background(self, step=0):
+        """Creates a smooth, fluid shifting background for the welcome screen."""
+        if not hasattr(self, "splash_canvas") or not self.splash_canvas.winfo_exists():
+            return
+            
+        # Stop animation only if the splash container is destroyed (we have moved to dashboard)
+        if not self.splash_container.winfo_exists():
+            return
+
+        import math
+        # Quadrupled speed (0.05 -> 0.20) for high-energy pulse effect
+        t = step * 0.20
+        
+        # Top Color (Transitioning between Navy and Purple)
+        r1 = int(15 + 10 * math.sin(t))
+        g1 = int(18 + 8 * math.cos(t * 1.1))
+        b1 = int(45 + 20 * math.sin(t * 0.7))
+        
+        # Middle Color (Vivid Indigo / Violet Pulse)
+        r2 = int(50 + 30 * math.sin(t * 0.6))
+        g2 = int(40 + 20 * math.cos(t * 1.4))
+        b2 = int(130 + 50 * math.sin(t * 0.5))
+        
+        # Bottom Color (Ocean Blue / Teal Dark)
+        r3 = int(25 + 15 * math.sin(t * 0.9))
+        g3 = int(45 + 25 * math.cos(t * 0.8))
+        b3 = int(85 + 30 * math.sin(t * 1.2))
+        
+        c1 = f"#{r1:02x}{g1:02x}{b1:02x}"
+        c2 = f"#{r2:02x}{g2:02x}{b2:02x}"
+        c3 = f"#{r3:02x}{g3:02x}{b3:02x}"
+        
+        # Store current animated colors for blending other components
+        self._current_c1 = c1
+        self._current_c2 = c2
+        self._current_c3 = c3
+        
+        w = self.splash_canvas.winfo_width()
+        h = self.splash_canvas.winfo_height()
+        
+        if w > 1 and h > 1:
+            self._draw_gradient(self.splash_canvas, w, h, c1, c2, c3)
+            
+            # Sync button background blending if it exists and is in the welcome screen
+            if hasattr(self, "start_app_btn") and self.start_app_btn.winfo_exists():
+                # Button is roughly at the bottom or moving, we calculate its current bleed color
+                btn_y = self.splash_canvas.coords(self.welcome_btn_window)[1]
+                ratio = btn_y / h if h > 0 else 1.0
+                
+                # Blend logic similar to _get_gradient_color but using dynamic colors
+                if ratio < 0.5:
+                    sub = ratio * 2.0
+                    rb = int(r1 + (r2 - r1) * sub)
+                    gb = int(g1 + (g2 - g1) * sub)
+                    bb = int(b1 + (b2 - b1) * sub)
+                else:
+                    sub = (ratio - 0.5) * 2.0
+                    rb = int(r2 + (r3 - r2) * sub)
+                    gb = int(g2 + (g3 - g2) * sub)
+                    bb = int(b2 + (b3 - b2) * sub)
+                
+                # Clamp values to [0, 255] to avoid invalid hex codes
+                rb = max(0, min(255, rb))
+                gb = max(0, min(255, gb))
+                bb = max(0, min(255, bb))
+                
+                blend_color = f"#{rb:02x}{gb:02x}{bb:02x}"
+                self.start_app_btn.configure(bg_color=blend_color)
+
+        # Reduced interval (80ms -> 50ms) for higher frame rate and faster feel
+        self.after(50, lambda: self._animate_splash_background(step + 1))
 
     def _on_start_clicked(self):
         # Update button state to show checking
@@ -1442,9 +1537,9 @@ class MainWindow(ctk.CTk):
                     target_w = int(w * ratio)
                 
                 img_resize = raw_img.resize((target_w, new_h), Image.Resampling.LANCZOS)
-                photo = ImageTk.PhotoImage(img_resize)
-                img_label = ctk.CTkLabel(container, image=photo, text="")
-                img_label.image = photo 
+                ctk_image = ctk.CTkImage(light_image=img_resize, dark_image=img_resize, size=(target_w, new_h))
+                img_label = ctk.CTkLabel(container, image=ctk_image, text="")
+                img_label.image = ctk_image 
                 img_label.pack(pady=10)
             except Exception as e:
                 print(f"Error loading tutorial image: {e}")

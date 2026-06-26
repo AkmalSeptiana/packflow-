@@ -46,7 +46,7 @@ class ShopeePDFReader:
                         r'\b11\d{11,12}\b',                            # Anteraja (strictly 13-14 digits starting with 11)
                         r'\b(?:COD)?C?11[O0]+\d{6,15}[A-Z0-9]*\b',     # Mangled Anteraja (C11O, 11O, etc)
                         r'\b1(?:\s*\d){12,15}\b',                      # Anteraja Standard / Other Numeric 1...
-                        r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHP|SHPE|NX)[\s:.]*[A-Z0-9]{7,25}', # Alphanumeric
+                        r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHP|SHPE|NX|TG)[\s:.]*[A-Z0-9]{7,25}', # Alphanumeric
                         r'\b(?:COD)?(?!08)(?:\s*\d){12,22}\b',         # J&T / SPX / Instant Numeric
                         r'\b(?!08)(?:\s*[A-Z0-9]){10,22}\b'            # General Alphanumeric Fallback (Mangled Resi)
                     ]
@@ -62,8 +62,9 @@ class ShopeePDFReader:
                             if val_clean.startswith(("08", "628", "+628")):
                                 continue
                             
-                            # Skip strings that are likely SKU/Table noise (contain keywords like KIRIM or RETUR)
-                            if any(x in val_clean for x in ["KIRIM", "RETUR", "PCS", "PACK"]):
+                            # Skip strings that are likely SKU/Table noise or Warehouse Sorting Codes
+                            # e.g. 001TGR... (Tangerang), 001JKT... (Jakarta)
+                            if any(x in val_clean for x in ["KIRIM", "RETUR", "PCS", "PACK", "TGR", "CGK", "JKT", "SUB", "BDO"]):
                                 continue
                                 
                             if len(val_clean) >= 7:
@@ -71,13 +72,13 @@ class ShopeePDFReader:
                     
                     if all_matches:
                         # Prioritization Logic: SPXID -> ID -> Ninja -> Instant -> Sameday (Grab) -> Anteraja -> SiCepat
-                        spx_matches = [m for m in all_matches if "SPX" in m.upper()]
+                        spx_matches = [m for m in all_matches if any(p in m.upper() for p in ["SPX", "TG"])]
                         id_matches = [m for m in all_matches if m.startswith("ID") and len(m) >= 10]
                         ninja_matches = [m for m in all_matches if m.startswith("SHP") and len(m) >= 10]
                         instant_matches = [m for m in all_matches if (m.startswith("31") or m.startswith("32")) and len(m) >= 15]
                         sameday_matches = [m for m in all_matches if any(m.startswith(p) for p in ["SD-", "IN-", "GK-"])]
                         anteraja_matches = [m for m in all_matches if (m.startswith("11") or m.startswith("C11")) and 13 <= len(re.sub(r'[^0-9]', '', m)) <= 14]
-                        sicepat_matches = [m for m in all_matches if any(m.startswith(p) for p in ["00", "0O", "C0O"]) and not m.startswith("0011") and not m.startswith("0031") and not any(m.startswith(p) for p in ["SD-", "IN-", "GK-"]) and len(re.sub(r'[^0-9]', '', m)) >= 12]
+                        sicepat_matches = [m for m in all_matches if any(m.startswith(p) for p in ["00", "0O", "C0O"]) and not m.startswith("0011") and not m.startswith("0031") and not any(m.startswith(p) for p in ["SD-", "IN-", "GK-"]) and len(re.sub(r'[^0-9]', '', m)) >= 12 and m.isdigit()]
                         
                         if spx_matches:
                             resi_val = spx_matches[0]
@@ -481,7 +482,8 @@ class TikTokPDFReader:
             r'\b00\d{10,13}\b',
             r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',
             r'\b1\d{12,13}\b',
-            r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX)[\s:.]*[A-Z0-9]{7,25}',
+            r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX|TG)[\s:.]*[A-Z0-9]{7,25}',
+            r'\bTG\d{10,14}\b',                            # TikTok TG Patterns
             r'\b[A-Z]{2,4}\d{9,15}[A-Z]*\b',
             r'\b(?!08)\d{10,15}\b'
         ]
@@ -489,12 +491,15 @@ class TikTokPDFReader:
         for pattern in resi_patterns:
             for m in re.finditer(pattern, text, re.IGNORECASE):
                 val = m.group(0).strip()
-                if len(val) >= 7:
-                    all_matches.append(val)
+                val_clean = val.replace(" ", "").upper()
+                if len(val_clean) >= 7:
+                    # Guard against Noise keywords for TikTok too
+                    if not any(x in val_clean for x in ["KIRIM", "RETUR", "PCS", "PACK", "TGR", "CGK", "JKT", "SUB", "BDO"]):
+                        all_matches.append(val_clean)
 
         if all_matches:
-            # Prioritization Logic: SPXID/JX/JP first, then SiCepat (00, C0O, 0O), then everything else
-            special_matches = [m for m in all_matches if any(prefix in m.upper() for prefix in ["JX", "JP", "NLID", "SPX", "NX"])]
+            # Prioritization Logic: SPXID/JX/JP/TG first, then SiCepat (00, C0O, 0O), then everything else
+            special_matches = [m for m in all_matches if any(prefix in m.upper() for prefix in ["JX", "JP", "NLID", "SPX", "NX", "TG"])]
             sicepat_matches = [m for m in all_matches if m.startswith("00") or m.upper().startswith("C0O") or m.upper().startswith("0O")]
             
             if special_matches:
