@@ -63,8 +63,8 @@ class ShopeePDFReader:
                                 continue
                             
                             # Skip strings that are likely SKU/Table noise or Warehouse Sorting Codes
-                            # e.g. 001TGR... (Tangerang), 001JKT... (Jakarta)
-                            if any(x in val_clean for x in ["KIRIM", "RETUR", "PCS", "PACK", "TGR", "CGK", "JKT", "SUB", "BDO"]):
+                            # e.g. TGL1100... (Tegal), 001TGR... (Tangerang), 001JKT... (Jakarta)
+                            if any(x in val_clean for x in ["KIRIM", "RETUR", "PCS", "PACK", "TGR", "TGL", "CGK", "JKT", "SUB", "BDO", "KNG", "BTG"]):
                                 continue
                                 
                             if len(val_clean) >= 7:
@@ -100,10 +100,13 @@ class ShopeePDFReader:
                             resi_val = candidates[0] if candidates else all_matches[0]
                         
                         # --- DEEP CLEAN SELECTION ---
-                        # 1. Strip sequence numbers (like No:001, No:012) that are sometimes merged into the resi text
-                        # Matches "No:012" or "012" at the start, only if it starts with '0' (to avoid stripping Anteraja '11')
-                        # and followed by valid resi starts (11, 00, 31, 32)
-                        resi_val = re.sub(r'^(?:No[:\s]*)?0\d{1,2}(?:\s*(?=11|00|31|32))', '', resi_val, flags=re.IGNORECASE)
+                        # 1. Strip sequence numbers (No:01) or sorting codes (TGL) correctly
+                        # Remove alphabetic sorting prefixes (TGL, TGR, etc) if they are followed by numbers
+                        resi_val = re.sub(r'^(?:TGL|TGR|CGK|JKT|SUB|BTG|KNG|BTG|PNK|BDO)', '', resi_val, flags=re.IGNORECASE)
+                        
+                        # Remove sequence patterns like "No:01" or "01 " but only if followed by valid resi starts (11, 00, 31, 32)
+                        # We use 0\d to ensure we only strip sequence numbers like 01, 02, not 11 (Anteraja)
+                        resi_val = re.sub(r'^(?:No[:\s]*)?0\d(?:\s*(?=11|00|31|32))', '', resi_val, flags=re.IGNORECASE)
                         
                         # 2. Remove other common PDF noise symbols
                         for noise in [":", ".", ",", "(", ")", "COD", "NON-COD", "ECO", "REG"]:
@@ -494,7 +497,7 @@ class TikTokPDFReader:
                 val_clean = val.replace(" ", "").upper()
                 if len(val_clean) >= 7:
                     # Guard against Noise keywords for TikTok too
-                    if not any(x in val_clean for x in ["KIRIM", "RETUR", "PCS", "PACK", "TGR", "CGK", "JKT", "SUB", "BDO"]):
+                    if not any(x in val_clean for x in ["KIRIM", "RETUR", "PCS", "PACK", "TGR", "TGL", "CGK", "JKT", "SUB", "BDO", "KNG", "BTG"]):
                         all_matches.append(val_clean)
 
         if all_matches:

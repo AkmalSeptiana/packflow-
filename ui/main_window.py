@@ -14,8 +14,8 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.5.5"
-RELEASE_NOTES = "update dan upgrade beberapa nomor resi"
+CURRENT_VERSION = "2.5.6"
+RELEASE_NOTES = "perbaikan Nomor Resi Anteraja dan Smooth Progress Bar"
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
@@ -976,17 +976,18 @@ class MainWindow(ctk.CTk):
         status_text_frame = ctk.CTkFrame(self.loading_container, fg_color="transparent")
         status_text_frame.pack(side="left", fill="both", expand=True)
         
-        self.status_label = ctk.CTkLabel(status_text_frame, textvariable=self.status_bar_str, font=("Segoe UI", 12, "bold"), text_color=("#1F2937", "#3B82F6"))
+        self.status_label = ctk.CTkLabel(status_text_frame, textvariable=self.status_bar_str, font=("Segoe UI", 13, "bold"), text_color="#3B82F6")
         self.status_label.pack(anchor="w")
         
-        # Sleek thin progress bar
-        self.smooth_progress_bar = ctk.CTkProgressBar(status_text_frame, height=4, width=350, corner_radius=2,
-                                                       fg_color=("#E5E7EB", "#1F2937"), progress_color="#3B82F6")
-        self.smooth_progress_bar.pack(anchor="w", pady=(2, 2))
+        # Sleek progress bar with slightly more thickness for clarity
+        self.smooth_progress_bar = ctk.CTkProgressBar(status_text_frame, height=6, width=350, corner_radius=3,
+                                                       fg_color=("#E5E7EB", "#161B2E"), progress_color="#3B82F6")
+        self.smooth_progress_bar.pack(anchor="w", pady=(4, 4))
         self.smooth_progress_bar.set(0)
         
-        self.progress_detail_label = ctk.CTkLabel(status_text_frame, textvariable=self.progress_text_str, font=("Segoe UI", 11), text_color=("#4B5563", "#8F9CAE"))
-        self.progress_detail_label.pack(anchor="w")
+        # State for smooth animation
+        self._target_progress = 0.0
+        self._current_visual_progress = 0.0
         
         # Hide loading indicator initially
         self.loading_container.grid_remove()
@@ -1739,14 +1740,49 @@ class MainWindow(ctk.CTk):
         self.status_label.configure(text_color="#10B981")
 
     def _update_progress(self, value, percent_str, text_str):
-        # Update the new sleek progress bar
-        if hasattr(self, "smooth_progress_bar"):
-            self.smooth_progress_bar.set(value)
+        # Set target for the smooth animation loop
+        self._target_progress = value
         
-        self.progress_percent_str.set(percent_str)
-        self.progress_text_str.set(text_str)
-        # Append percent to status bar for more visibility
-        self.status_bar_str.set(f"Status: {text_str} ({percent_str})")
+        # Directly set the consolidated string to the main status label
+        self.status_bar_str.set(text_str)
+
+    def _animate_progress_smoothly(self):
+        """Animates the progress bar with a strict 'Liquid Flow' constant speed."""
+        if not hasattr(self, "is_loading") or not self.is_loading:
+            return
+
+        # Liquid Flow Logic: Strict speed control
+        diff = self._target_progress - self._current_visual_progress
+        
+        if abs(diff) > 0.0001:
+            # VERY STRICT speed control for "Liquid" feel
+            # Max travel is 1.5% per frame (75% per second) - very smooth but responsive
+            # Min travel is 0.2% per frame
+            max_move = 0.015 
+            min_move = 0.002
+            
+            # Use small exponential approach but cap it tightly
+            move = diff * 0.12 
+            
+            if abs(move) > max_move:
+                move = max_move if diff > 0 else -max_move
+            if abs(move) < min_move and abs(diff) > 0:
+                move = min_move if diff > 0 else -min_move
+                
+            self._current_visual_progress += move
+            
+            # Prevent overshooting
+            if (diff > 0 and self._current_visual_progress > self._target_progress) or \
+               (diff < 0 and self._current_visual_progress < self._target_progress):
+                self._current_visual_progress = self._target_progress
+            
+            self._current_visual_progress = max(0.0, min(1.0, self._current_visual_progress))
+            
+            if hasattr(self, "smooth_progress_bar"):
+                self.smooth_progress_bar.set(self._current_visual_progress)
+        
+        # Consistent high frame rate (20ms = 50fps)
+        self.after(20, self._animate_progress_smoothly)
 
     def _create_loading_animation(self):
         """Create frames for the rotating loading spinner."""
@@ -1814,6 +1850,7 @@ class MainWindow(ctk.CTk):
         self.is_loading = True
         self.loading_container.grid()
         self._animate_loading_loop()
+        self._animate_progress_smoothly() # Start smooth progress crawl loop
         
         self.status_bar_str.set("Status: Memulai proses...")
         self.status_label.configure(text_color="#3B82F6")
@@ -1830,8 +1867,9 @@ class MainWindow(ctk.CTk):
             pass
             
         self.all_resi = []
-        if hasattr(self, "smooth_progress_bar"):
-            self.smooth_progress_bar.set(0)
+        # Reset state only, let the animator handle the visual reset slowly
+        self._target_progress = 0.0
+        self._current_visual_progress = 0.0
         self.progress_percent_str.set("0%")
         self.progress_text_str.set("Memproses 0 / 0 data resi...")
         self.total_data_str.set("0")
@@ -1889,7 +1927,7 @@ class MainWindow(ctk.CTk):
                 percent = f"{int(progress_step * 100)}%"
                 text = f"Memproses data {i+1} / {total_pages}..."
                 self.after(0, self._update_progress, progress_step, percent, text)
-                self.update_idletasks()
+                # Removed update_idletasks() to let the animator handle visual flow independently
                 
                 # ... [SKU Parsing Logic] ...
 
