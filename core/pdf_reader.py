@@ -46,6 +46,7 @@ class ShopeePDFReader:
                         r'\b11\d{11,13}\b',                            # Anteraja (11 + 11-13 digits)
                         r'\b(?:COD)?C?11[O0]+\d{6,15}[A-Z0-9]*\b',     # Mangled Anteraja (C11O, 11O, etc)
                         r'\b1(?:\s*\d){12,15}\b',                      # Anteraja Standard / Other Numeric 1...
+                        r'C?SPX[O0]?ID(?:[\sA-Z]*\d){9,15}\b',        # Mangled CSPXOID / SPXOID + digits with noise chars (D, O, etc)
                         r'\bSPX[\s:.-]*ID(?:[\s]*\d){10,15}\b',        # SPX ID + 10-15 digits (allows spaces)
                         r'\bSPXID(?:[\s]*\d){9,15}\b',                 # SPXID + 9-15 digits (allows spaces in digit body)
                         r'\bSPX(?:[\s]*\d){9,15}\b',                   # SPX + digits (allows spaces)
@@ -156,7 +157,7 @@ class ShopeePDFReader:
                         
                         # Identify Prefix - Initialize as empty
                         found_prefix = ""
-                        prefixes = ["SPXID", "SPX ID", "SPX", "ID", "JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "SHPE", "SHP", "NX", "SD-", "SD", "JY", "GK-", "IN-"]
+                        prefixes = ["CSPXOID", "CSPXID", "CSPX", "SPXOID", "SPXID", "SPX ID", "SPX", "ID", "JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "SHPE", "SHP", "NX", "SD-", "SD", "JY", "GK-", "IN-"]
                         for p in prefixes:
                             p_clean = p.replace(" ", "").upper()
                             if resi_val.upper().startswith(p_clean):
@@ -168,7 +169,7 @@ class ShopeePDFReader:
                             body = resi_val[len(found_prefix):]
                             
                             # Standard tracking numbers (like SPXID, J&T, etc)
-                            if found_prefix in ["SPXID", "SPX"]:
+                            if found_prefix in ["CSPXOID", "CSPXID", "CSPX", "SPXOID", "SPXID", "SPX"]:
                                 body = re.sub(r'[^0-9]', '', body)
                                 page_data["resi"] = "SPXID" + body
                             elif found_prefix == "ID":

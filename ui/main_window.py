@@ -14,7 +14,7 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.5.7"
+CURRENT_VERSION = "2.5.8"
 RELEASE_NOTES = "Perbaikan akurasi pembacaan nomor resi PDF"
 
 WHATS_NEW = [
