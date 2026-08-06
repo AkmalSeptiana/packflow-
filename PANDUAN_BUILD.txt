@@ -1,25 +1,61 @@
-PANDUAN MANUAL BUILD PACKFLOW
-=============================
+PANDUAN LENGKAP BUILD & RELEASE PACKFLOW
+=========================================
 
-Langkah-langkah untuk membangun ulang (rebuild) aplikasi PackFlow menjadi file Installer:
+--- CARA 1: OTOMATIS (DIREKOMENDASIKAN) ---
 
-1. MEMBANGUN FILE EXECUTABLE (.EXE)
-   Buka terminal (CMD atau PowerShell) di folder project, lalu jalankan:
-   python build_exe.py
-   
-   Tunggu sampai muncul pesan: "BERHASIL! File EXE ada di folder 'dist/PackFlow.exe'"
+1. Update Versi Aplikasi (Jika ada versi baru):
+   - Buka file: ui/main_window.py
+   - Ubah baris: CURRENT_VERSION = "x.x.x" (contoh: "2.5.7")
 
-2. MEMBANGUN INSTALLER (.EXE SETUP)
-   Jika Anda menggunakan POWERSHELL, jalankan perintah ini (WAJIB pakai tanda & di awal):
-   & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+2. Jalankan Skrip Release:
+   - Buka terminal / PowerShell di folder project:
+     python release_update.py
 
-   Jika Anda menggunakan CMD (Command Prompt), jalankan perintah ini:
-   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+3. Ikuti Instruksi di Terminal:
+   - Masukkan pesan update / fitur baru.
+   - Ketik 'y' untuk otomatis jalankan Build EXE & Installer.
+   - Ketik 'y' untuk otomatis git add, commit, dan push ke GitHub.
 
-3. HASIL AKHIR
-   Installer yang siap dibagikan/diinstall akan berada di:
-   installer_dist\PackFlow_Setup.exe
+4. Upload File Installer ke GitHub Release:
+   - Buka browser: https://github.com/AkmalSeptiana/packflow-
+   - Masuk ke menu "Releases" -> "Create a new release".
+   - Buat Tag baru sesuai versi (contoh: v2.5.7).
+   - Isi judul & deskripsi release.
+   - Upload file installer yang ada di folder:
+     installer_dist/PackFlow_Setup.exe
+   - Klik "Publish release".
 
-CATATAN:
-- Pastikan aplikasi PackFlow sedang tidak terbuka saat melakukan build.
-- Pastikan folder 'installer_dist' tidak sedang dibuka oleh aplikasi lain.
+
+--- CARA 2: MANUAL (STEP-BY-STEP) ---
+
+Langkah 1: Update Versi di Kode
+- File ui/main_window.py -> CURRENT_VERSION = "x.x.x"
+- File installer.iss     -> #define MyAppVersion "x.x.x"
+
+Langkah 2: Build File Executable (.EXE)
+- Jalankan di terminal:
+  python build_exe.py
+- Hasil EXE berada di folder: dist/PackFlow.exe
+
+Langkah 3: Kompilasi Installer Windows (.EXE Setup)
+- Jika menggunakan POWERSHELL:
+  & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+- Jika menggunakan CMD:
+  "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+- Hasil Installer berada di folder: installer_dist/PackFlow_Setup.exe
+
+Langkah 4: Git Push ke GitHub
+  git add .
+  git commit -m "Release v2.5.7: Fitur baru dan perbaikan bug"
+  git push origin main
+
+Langkah 5: Publish Release di GitHub
+- Buka: https://github.com/AkmalSeptiana/packflow-
+- Pilih Releases -> Draft a new release -> Buat Tag (v2.5.7).
+- Upload file installer_dist/PackFlow_Setup.exe.
+- Klik Publish release.
+
+
+CATATAN PENTING:
+- Pastikan aplikasi PackFlow sedang ditutup saat melakukan proses build.
+- Tag rilis di GitHub wajib diawali dengan huruf 'v' (contoh: v2.5.7) agar terbaca oleh fitur Auto-Updater.

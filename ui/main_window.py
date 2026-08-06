@@ -14,8 +14,17 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.5.6"
-RELEASE_NOTES = "perbaikan Nomor Resi Anteraja dan Smooth Progress Bar"
+CURRENT_VERSION = "2.5.7"
+RELEASE_NOTES = "Perbaikan akurasi pembacaan nomor resi PDF"
+
+WHATS_NEW = [
+    ("⚠️", "Pemberitahuan Reset Settings", "Seluruh konfigurasi/setting di-reset ke default. Silakan lakukan input ulang pengaturan di menu Settings."),
+    ("🔧", "Filter kata kunci noise diperluas", "Mencegah header seperti IDKOTABANDUNG, IDDIBUATPADA, TOTAL... salah dibaca sebagai resi."),
+    ("✅", "Validasi prefix resi lebih ketat", "ID, CM, JP, JX, TG, SPX kini wajib diikuti angka — teks kota/header otomatis diabaikan."),
+    ("⚡", "Konversi SPXID otomatis", "Resi Shopee Express dengan prefix ID0... kini dikenali dan dikonversi ke format SPXID secara otomatis."),
+    ("📄", "Resi terpotong karena spasi di PDF", "Pola SPXID kini toleran terhadap spasi di tengah digit (misal: SPXID060675722 366 → SPXID060675722366)."),
+    ("🎯", "Prioritas ekspedisi lebih lengkap", "Ditambahkan prioritas CM (JNE), JP, JX (J&T Cargo) setelah ID dalam urutan seleksi nomor resi."),
+]
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
@@ -688,6 +697,156 @@ class MainWindow(ctk.CTk):
         
         # Start date/time ticker loop
         self._update_datetime_loop()
+        
+        # Show "What's New" popup if this version is being launched for the first time
+        self.after(800, self._check_and_show_whats_new)
+
+    def _check_and_show_whats_new(self):
+        """Show Apa yang Baru popup only once per version."""
+        try:
+            if getattr(sys, 'frozen', False):
+                app_dir = os.path.dirname(sys.executable)
+            else:
+                app_dir = os.path.abspath(".")
+            flag_file = os.path.join(app_dir, "config", f"shown_v{CURRENT_VERSION}.flag")
+            if not os.path.exists(flag_file):
+                # First launch of this version — show popup
+                self._show_whats_new_popup()
+                # Write flag so popup won't show again
+                os.makedirs(os.path.dirname(flag_file), exist_ok=True)
+                with open(flag_file, 'w') as f:
+                    f.write(CURRENT_VERSION)
+        except Exception:
+            pass
+
+    def _show_whats_new_popup(self):
+        """Popup shown once after a new version is first launched."""
+        popup = ctk.CTkToplevel(self)
+        popup.title(f"✨ Apa yang Baru di v{CURRENT_VERSION}")
+        popup.geometry("460x480")
+        popup.resizable(False, False)
+        popup.transient(self)
+        popup.grab_set()
+
+        self.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() // 2) - 230
+        y = self.winfo_y() + (self.winfo_height() // 2) - 240
+        popup.geometry(f"+{x}+{y}")
+
+        icon_path_ico = resource_path("assets/icon.ico")
+        if os.path.exists(icon_path_ico) and sys.platform.startswith("win"):
+            try:
+                popup.after(200, lambda: popup.iconbitmap(icon_path_ico))
+            except Exception:
+                pass
+
+        # Header
+        header = ctk.CTkFrame(popup, fg_color=("#EFF6FF", "#1E3A5F"), corner_radius=0)
+        header.pack(fill="x")
+        ctk.CTkLabel(header, text=f"✨  Apa yang Baru di PackFlow v{CURRENT_VERSION}",
+                     font=("Segoe UI", 14, "bold"), text_color=("#1D4ED8", "#60A5FA")).pack(pady=14, padx=20)
+
+        # Scrollable content
+        scroll = ctk.CTkScrollableFrame(popup, fg_color="transparent", corner_radius=0)
+        scroll.pack(fill="both", expand=True, padx=8, pady=8)
+
+        for icon, title, desc in WHATS_NEW:
+            row = ctk.CTkFrame(scroll, fg_color=("#F9FAFB", "#1E293B"), corner_radius=8)
+            row.pack(fill="x", padx=12, pady=5)
+            row.grid_columnconfigure(1, weight=1)
+
+            # Icon badge
+            ctk.CTkLabel(row, text=icon, font=("Segoe UI", 22), width=40).grid(
+                row=0, column=0, rowspan=2, padx=(12, 8), pady=10, sticky="ns")
+
+            # Title
+            ctk.CTkLabel(row, text=title, font=("Segoe UI", 12, "bold"),
+                         text_color=("#111827", "#F1F5F9"), anchor="w").grid(
+                row=0, column=1, sticky="ew", padx=(0, 12), pady=(10, 0))
+
+            # Description
+            ctk.CTkLabel(row, text=desc, font=("Segoe UI", 11),
+                         text_color=("#6B7280", "#9CA3AF"), anchor="w", wraplength=340, justify="left").grid(
+                row=1, column=1, sticky="ew", padx=(0, 12), pady=(0, 10))
+
+        # Footer button
+        footer = ctk.CTkFrame(popup, fg_color="transparent")
+        footer.pack(fill="x", padx=20, pady=(4, 16))
+        ctk.CTkButton(footer, text="Mengerti, Tutup", font=("Segoe UI", 13, "bold"), height=38,
+                      fg_color="#2563EB", hover_color="#1D4ED8", text_color="#FFFFFF", corner_radius=8,
+                      command=lambda: [popup.destroy(), self.after(200, self._show_settings_reset_popup)]).pack(fill="x")
+
+    def _show_settings_reset_popup(self):
+        """Separate popup warning user that settings have been reset and require re-input."""
+        popup = ctk.CTkToplevel(self)
+        popup.title("⚠️ Pemberitahuan Pengaturan")
+        popup.geometry("450x320")
+        popup.resizable(False, False)
+        popup.transient(self)
+        popup.grab_set()
+
+        self.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() // 2) - 225
+        y = self.winfo_y() + (self.winfo_height() // 2) - 160
+        popup.geometry(f"+{x}+{y}")
+
+        icon_path_ico = resource_path("assets/icon.ico")
+        if os.path.exists(icon_path_ico) and sys.platform.startswith("win"):
+            try:
+                popup.after(200, lambda: popup.iconbitmap(icon_path_ico))
+            except Exception:
+                pass
+
+        # Header Warning Frame (Amber/Yellow background)
+        header = ctk.CTkFrame(popup, fg_color=("#FEF3C7", "#78350F"), corner_radius=0)
+        header.pack(fill="x")
+        ctk.CTkLabel(header, text="⚠️   Pengaturan (Settings) Di-Reset",
+                     font=("Segoe UI", 14, "bold"), text_color=("#92400E", "#FDE68A")).pack(pady=14, padx=20)
+
+        # Content container
+        content = ctk.CTkFrame(popup, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=24, pady=16)
+
+        ctk.CTkLabel(
+            content,
+            text="Semua hasil input Pengaturan (Settings) telah di-reset untuk pembaruan versi ini.\n\nHarap lakukan input ulang pengaturan Anda melalui menu Settings agar aplikasi berjalan sesuai preferensi Anda.",
+            font=("Segoe UI", 12),
+            text_color=("#374151", "#E5E7EB"),
+            justify="left",
+            wraplength=390
+        ).pack(fill="x", pady=(5, 15))
+
+        # Footer Buttons
+        footer = ctk.CTkFrame(content, fg_color="transparent")
+        footer.pack(fill="x", side="bottom")
+        footer.grid_columnconfigure(0, weight=1)
+        footer.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkButton(
+            footer,
+            text="⚙️  Buka Settings Sekarang",
+            font=("Segoe UI", 12, "bold"),
+            height=38,
+            fg_color="#2563EB",
+            hover_color="#1D4ED8",
+            text_color="#FFFFFF",
+            corner_radius=8,
+            command=lambda: [popup.destroy(), self._open_settings()]
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+        ctk.CTkButton(
+            footer,
+            text="Mengerti, Tutup",
+            font=("Segoe UI", 12, "bold"),
+            height=38,
+            fg_color=("#E5E7EB", "#1F2937"),
+            border_width=1,
+            border_color=("#D1D5DB", "#374151"),
+            hover_color=("#D1D5DB", "#334155"),
+            text_color=("#1F2937", "#FFFFFF"),
+            corner_radius=8,
+            command=popup.destroy
+        ).grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
     def _setup_ui(self):
         # Configure root grid configuration for switching splash and main container
@@ -1583,15 +1742,15 @@ class MainWindow(ctk.CTk):
         """Show About dialog when version badge is clicked."""
         about_window = ctk.CTkToplevel(self)
         about_window.title("Tentang PackFlow")
-        about_window.geometry("400x320")
+        about_window.geometry("420x580")
         about_window.resizable(False, False)
         about_window.transient(self)
         about_window.grab_set()
         
         # Center on parent window
         self.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() // 2) - 200
-        y = self.winfo_y() + (self.winfo_height() // 2) - 160
+        x = self.winfo_x() + (self.winfo_width() // 2) - 210
+        y = self.winfo_y() + (self.winfo_height() // 2) - 290
         about_window.geometry(f"+{x}+{y}")
         
         # Set window icon
@@ -1602,10 +1761,10 @@ class MainWindow(ctk.CTk):
             except Exception:
                 pass
         
-        # Content frame
-        content = ctk.CTkFrame(about_window, fg_color="transparent")
-        content.pack(fill="both", expand=True, padx=24, pady=20)
-        
+        # --- Top info section ---
+        top_frame = ctk.CTkFrame(about_window, fg_color="transparent")
+        top_frame.pack(fill="x", padx=24, pady=(18, 0))
+
         # App Logo
         logo_path = resource_path("assets/icon.png")
         if os.path.exists(logo_path):
@@ -1613,39 +1772,65 @@ class MainWindow(ctk.CTk):
                 logo_img = ctk.CTkImage(
                     light_image=Image.open(logo_path),
                     dark_image=Image.open(logo_path),
-                    size=(64, 64)
+                    size=(60, 60)
                 )
-                ctk.CTkLabel(content, text="", image=logo_img).pack(pady=(10, 8))
+                ctk.CTkLabel(top_frame, text="", image=logo_img).pack(pady=(0, 6))
             except Exception:
                 pass
         
-        # App Name
-        ctk.CTkLabel(content, text="PackFlow", font=("Segoe UI", 22, "bold"), text_color=("#1F2937", "#FFFFFF")).pack()
-        
-        # Version
-        ctk.CTkLabel(content, text=f"Versi {CURRENT_VERSION}", font=("Segoe UI", 13), text_color="#3B82F6").pack(pady=(2, 8))
-        
-        # Description
-        ctk.CTkLabel(content, text="Otomatisasi Pelabelan Resi Pesanan\nuntuk Marketplace Shopee, Tiktok & Lazada", 
-                     font=("Segoe UI", 12), text_color=("#4B5563", "#9CA3AF"), justify="center").pack(pady=(0, 6))
-        
-        # Guide Button
-        ctk.CTkButton(content, text="  Panduan Penggunaan", image=self.info_icon, compound="left", font=("Segoe UI", 12, "bold"), height=36,
-                      fg_color=("#E5E7EB", "#1F2937"), border_width=1, border_color=("#D1D5DB", "#374151"), 
+        ctk.CTkLabel(top_frame, text="PackFlow", font=("Segoe UI", 22, "bold"),
+                     text_color=("#1F2937", "#FFFFFF")).pack()
+        ctk.CTkLabel(top_frame, text=f"Versi {CURRENT_VERSION}", font=("Segoe UI", 13),
+                     text_color="#3B82F6").pack(pady=(2, 4))
+        ctk.CTkLabel(top_frame, text="Otomatisasi Pelabelan Resi Pesanan\nuntuk Marketplace Shopee, Tiktok & Lazada", 
+                     font=("Segoe UI", 11), text_color=("#4B5563", "#9CA3AF"), justify="center").pack(pady=(0, 8))
+
+        # --- Apa yang Baru section ---
+        ctk.CTkFrame(about_window, height=1, fg_color=("#E5E7EB", "#1F2937")).pack(fill="x", padx=20)
+
+        ctk.CTkLabel(about_window, text="✨  Apa yang Baru di Versi Ini",
+                     font=("Segoe UI", 12, "bold"), text_color=("#1D4ED8", "#60A5FA")).pack(
+                         anchor="w", padx=24, pady=(10, 4))
+
+        scroll = ctk.CTkScrollableFrame(about_window, fg_color="transparent", height=220, corner_radius=0)
+        scroll.pack(fill="x", padx=12, pady=(0, 6))
+
+        for icon, title, desc in WHATS_NEW:
+            row = ctk.CTkFrame(scroll, fg_color=("#F9FAFB", "#1E293B"), corner_radius=7)
+            row.pack(fill="x", padx=6, pady=3)
+            row.grid_columnconfigure(1, weight=1)
+            ctk.CTkLabel(row, text=icon, font=("Segoe UI", 18), width=36).grid(
+                row=0, column=0, rowspan=2, padx=(10, 6), pady=8, sticky="ns")
+            ctk.CTkLabel(row, text=title, font=("Segoe UI", 11, "bold"),
+                         text_color=("#111827", "#F1F5F9"), anchor="w").grid(
+                row=0, column=1, sticky="ew", padx=(0, 10), pady=(8, 0))
+            ctk.CTkLabel(row, text=desc, font=("Segoe UI", 10),
+                         text_color=("#6B7280", "#9CA3AF"), anchor="w",
+                         wraplength=330, justify="left").grid(
+                row=1, column=1, sticky="ew", padx=(0, 10), pady=(0, 8))
+
+        # --- Footer ---
+        ctk.CTkFrame(about_window, height=1, fg_color=("#E5E7EB", "#1F2937")).pack(fill="x", padx=20)
+
+        footer = ctk.CTkFrame(about_window, fg_color="transparent")
+        footer.pack(fill="x", padx=24, pady=10)
+        footer.grid_columnconfigure(0, weight=1)
+        footer.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkButton(footer, text="  Panduan", image=self.info_icon, compound="left",
+                      font=("Segoe UI", 11, "bold"), height=34,
+                      fg_color=("#E5E7EB", "#1F2937"), border_width=1,
+                      border_color=("#D1D5DB", "#374151"),
                       hover_color=("#D1D5DB", "#334155"), text_color="#3B82F6", corner_radius=8,
-                      command=lambda: [about_window.destroy(), self._show_guide_view()]).pack(pady=(8, 12))
-        
-        # Separator
-        ctk.CTkFrame(content, height=1, fg_color=("#E5E7EB", "#1F2937")).pack(fill="x", padx=20, pady=4)
-        
-        # Credits
-        ctk.CTkLabel(content, text="Developed by Akmal", font=("Segoe UI", 11, "italic"), text_color=("#6B7280", "#8F9CAE")).pack(pady=(8, 2))
-        ctk.CTkLabel(content, text="© 2026 All rights reserved", font=("Segoe UI", 10), text_color=("#9CA3AF", "#6B7280")).pack()
-        
-        # Close button
-        ctk.CTkButton(content, text="Tutup", font=("Segoe UI", 12, "bold"), width=100, height=32,
-                      fg_color="#2563EB", hover_color="#1D4ED8", text_color="#FFFFFF", corner_radius=6,
-                      command=about_window.destroy).pack(pady=(12, 0))
+                      command=lambda: [about_window.destroy(), self._show_guide_view()]).grid(
+                          row=0, column=0, sticky="ew", padx=(0, 6))
+
+        ctk.CTkButton(footer, text="Tutup", font=("Segoe UI", 11, "bold"), height=34,
+                      fg_color="#2563EB", hover_color="#1D4ED8", text_color="#FFFFFF", corner_radius=8,
+                      command=about_window.destroy).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+
+        ctk.CTkLabel(about_window, text="Developed by Akmal  •  © 2026 All rights reserved",
+                     font=("Segoe UI", 10), text_color=("#9CA3AF", "#6B7280")).pack(pady=(0, 12))
 
     def _setup_guide_view(self):
         """Build the internal guide view content."""
