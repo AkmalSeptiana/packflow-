@@ -56,7 +56,7 @@ class ShopeePDFReader:
                         r'\bJX\d{10,14}\b',                            # J&T Cargo JX (JX + 10-14 digits)
                         r'\bTG\d{10,14}\b',                            # TikTok / J&T TG (TG + 10-14 digits)
                         r'\bNLID\d{9,14}\b',                           # Ninja NLID (NLID + 9-14 digits)
-                        r'\bSHP[E]?\d{9,15}\b',                        # Ninja / Shopee SHP / SHPE
+                        r'\bSHP[E]?[A-Z0-9]{10,22}\b',                 # POS / Ninja / Shopee SHP / SHPE Alphanumeric
                         r'\bNX\d{9,14}\b',                             # Ninja NX
                         r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX|TG)[\s:.]*\d{7,20}[A-Z]?', # Alphanumeric Prefix + Digits
                         r'\b(?:COD)?(?!08)(?:\s*\d){12,22}\b'          # J&T / SPX / Instant Numeric
@@ -181,10 +181,14 @@ class ShopeePDFReader:
                                     body_clean = re.sub(r'COD', '', body, flags=re.IGNORECASE)
                                     body_clean = re.sub(r'[^A-Z0-9]', '', body_clean, flags=re.IGNORECASE)
                                     page_data["resi"] = "ID" + body_clean.upper()
-                            elif found_prefix in ["JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "SHP", "NX"]:
+                            elif found_prefix in ["JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "NX"]:
                                 body = re.sub(r'COD', '', body, flags=re.IGNORECASE)
                                 body = re.sub(r'[^0-9]', '', body)
                                 page_data["resi"] = found_prefix + body
+                            elif found_prefix in ["SHPE", "SHP"]:
+                                body = re.sub(r'COD', '', body, flags=re.IGNORECASE)
+                                body = re.sub(r'[^A-Z0-9]', '', body, flags=re.IGNORECASE)
+                                page_data["resi"] = found_prefix + body.upper()
                             elif found_prefix in ["SD-", "SD", "GK-", "IN-"]:
                                 body = re.sub(r'COD', '', body, flags=re.IGNORECASE)
                                 body = re.sub(r'[^A-Z0-9-]', '', body, flags=re.IGNORECASE)
@@ -247,6 +251,9 @@ class ShopeePDFReader:
                             penerima_node = w
                             break
                     
+                    if penerima_node or pengirim_node or any(kw in text.upper() for kw in ["DIBUAT PADA", "TOTAL PRODUK", "WAJIB VIDEO UNBOXING", "NAMA TOKO"]):
+                        page_data["is_shipping_label"] = True
+
                     if penerima_node:
                         target_y = penerima_node['top']
                         line_words = [w for w in words if abs(w['top'] - target_y) < 5 and w['x0'] >= penerima_node['x0']]
@@ -531,7 +538,7 @@ class TikTokPDFReader:
             r'\bJX\d{10,14}\b',
             r'\bTG\d{10,14}\b',
             r'\bNLID\d{9,14}\b',
-            r'\bSHP[E]?\d{9,15}\b',
+            r'\bSHP[E]?[A-Z0-9]{10,22}\b',
             r'\bNX\d{9,14}\b',
             r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX|TG)[\s:.]*\d{7,20}[A-Z]?'
         ]

@@ -14,16 +14,13 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.5.8"
-RELEASE_NOTES = "Perbaikan akurasi pembacaan nomor resi PDF"
+CURRENT_VERSION = "2.5.9"
+RELEASE_NOTES = "Perbaikan akurasi resi alfanumerik Pos & pemisahan SKU per halaman"
 
 WHATS_NEW = [
-    ("⚠️", "Pemberitahuan Reset Settings", "Seluruh konfigurasi/setting di-reset ke default. Silakan lakukan input ulang pengaturan di menu Settings."),
-    ("🔧", "Filter kata kunci noise diperluas", "Mencegah header seperti IDKOTABANDUNG, IDDIBUATPADA, TOTAL... salah dibaca sebagai resi."),
-    ("✅", "Validasi prefix resi lebih ketat", "ID, CM, JP, JX, TG, SPX kini wajib diikuti angka — teks kota/header otomatis diabaikan."),
-    ("⚡", "Konversi SPXID otomatis", "Resi Shopee Express dengan prefix ID0... kini dikenali dan dikonversi ke format SPXID secara otomatis."),
-    ("📄", "Resi terpotong karena spasi di PDF", "Pola SPXID kini toleran terhadap spasi di tengah digit (misal: SPXID060675722 366 → SPXID060675722366)."),
-    ("🎯", "Prioritas ekspedisi lebih lengkap", "Ditambahkan prioritas CM (JNE), JP, JX (J&T Cargo) setelah ID dalam urutan seleksi nomor resi."),
+    ("📌", "Perbaikan Resi Pos Alfanumerik", "Nomor resi Pos/Shopee (seperti SHPE26080693D4C0058846) kini dibaca penuh secara alfanumerik tanpa terpotong atau menimbulkan noise."),
+    ("🛡️", "Proteksi Penggabungan Halaman Lanjutan", "Halaman yang memiliki label pengiriman kini terdeteksi secara presisi sehingga tidak akan salah digabungkan ke resi sebelumnya."),
+    ("🎯", "Presisi Ekstraksi SKU Per Resi", "Memastikan SKU produk hanya tertulis pada label resi pemiliknya (mencegah SKU dari halaman berikutnya ikut tercetak)."),
 ]
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
