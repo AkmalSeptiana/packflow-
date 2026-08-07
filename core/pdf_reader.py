@@ -50,15 +50,16 @@ class ShopeePDFReader:
                         r'\bSPX[\s:.-]*ID(?:[\s]*\d){10,15}\b',        # SPX ID + 10-15 digits (allows spaces)
                         r'\bSPXID(?:[\s]*\d){9,15}\b',                 # SPXID + 9-15 digits (allows spaces in digit body)
                         r'\bSPX(?:[\s]*\d){9,15}\b',                   # SPX + digits (allows spaces)
+                        r'\bIDS(?:[\s]*\d){9,16}[A-Z]?\b',             # ID Express IDS + digits
                         r'\bID(?:[\s]*\d){10,15}[A-Z]?\b',             # Shopee ID / J&T (ID + 10-15 digits + optional letter)
                         r'\bCM\d{9,13}\b',                             # JNE / J&T CM (CM + 9-13 digits)
                         r'\bJP\d{10,14}\b',                            # J&T JP (JP + 10-14 digits)
                         r'\bJX\d{10,14}\b',                            # J&T Cargo JX (JX + 10-14 digits)
                         r'\bTG\d{10,14}\b',                            # TikTok / J&T TG (TG + 10-14 digits)
                         r'\bNLID\d{9,14}\b',                           # Ninja NLID (NLID + 9-14 digits)
-                        r'\bSHP[E]?[A-Z0-9]{10,22}\b',                 # POS / Ninja / Shopee SHP / SHPE Alphanumeric
+                        r'\bSHP[E]?[A-Z0-9]{10,25}\b',                 # POS / Ninja / Shopee SHP / SHPE Alphanumeric
                         r'\bNX\d{9,14}\b',                             # Ninja NX
-                        r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX|TG)[\s:.]*\d{7,20}[A-Z]?', # Alphanumeric Prefix + Digits
+                        r'(?:SPXID|SPX|IDS|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX|TG)[\s:.]*[A-Z0-9]{7,25}', # Alphanumeric Prefix + Digits
                         r'\b(?:COD)?(?!08)(?:\s*\d){12,22}\b'          # J&T / SPX / Instant Numeric
                     ]
                     
@@ -88,7 +89,7 @@ class ShopeePDFReader:
 
                             # EXPLICIT GUARD FOR PREFIXES (ID, CM, JP, JX, TG, NX, SPX, etc.)
                             # If candidate starts with a known prefix, the remainder MUST start with a digit!
-                            known_prefixes = ["SPXID", "SPX", "ID", "CM", "JP", "JX", "TG", "NX", "NLID", "JY", "SHPE", "SHP", "CBN", "PLD", "TJB", "JNE"]
+                            known_prefixes = ["SPXID", "SPX", "IDS", "ID", "CM", "JP", "JX", "TG", "NX", "NLID", "JY", "SHPE", "SHP", "CBN", "PLD", "TJB", "JNE"]
                             has_invalid_prefix_rem = False
                             for p in known_prefixes:
                                 if val_clean.startswith(p):
@@ -105,7 +106,7 @@ class ShopeePDFReader:
                     if all_matches:
                         # Prioritization Logic: SPXID/TG -> ID -> CM -> JP -> JX -> Ninja -> Instant -> Sameday -> Anteraja -> SiCepat
                         spx_matches = [m for m in all_matches if any(p in m.upper() for p in ["SPX", "TG"])]
-                        id_matches = [m for m in all_matches if m.startswith("ID") and len(m) >= 10]
+                        id_matches = [m for m in all_matches if (m.startswith("ID") or m.startswith("IDS")) and len(m) >= 10]
                         cm_matches = [m for m in all_matches if m.startswith("CM") and len(m) >= 10]
                         jp_matches = [m for m in all_matches if m.startswith("JP") and len(m) >= 10]
                         jx_matches = [m for m in all_matches if m.startswith("JX") and len(m) >= 10]
@@ -157,7 +158,7 @@ class ShopeePDFReader:
                         
                         # Identify Prefix - Initialize as empty
                         found_prefix = ""
-                        prefixes = ["CSPXOID", "CSPXID", "CSPX", "SPXOID", "SPXID", "SPX ID", "SPX", "ID", "JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "SHPE", "SHP", "NX", "SD-", "SD", "JY", "GK-", "IN-"]
+                        prefixes = ["CSPXOID", "CSPXID", "CSPX", "SPXOID", "SPXID", "SPX ID", "SPX", "IDS", "ID", "JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "SHPE", "SHP", "NX", "SD-", "SD", "JY", "GK-", "IN-"]
                         for p in prefixes:
                             p_clean = p.replace(" ", "").upper()
                             if resi_val.upper().startswith(p_clean):
@@ -181,14 +182,23 @@ class ShopeePDFReader:
                                     body_clean = re.sub(r'COD', '', body, flags=re.IGNORECASE)
                                     body_clean = re.sub(r'[^A-Z0-9]', '', body_clean, flags=re.IGNORECASE)
                                     page_data["resi"] = "ID" + body_clean.upper()
-                            elif found_prefix in ["JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "NX"]:
+                            elif found_prefix in ["JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "NX", "IDS"]:
                                 body = re.sub(r'COD', '', body, flags=re.IGNORECASE)
                                 body = re.sub(r'[^0-9]', '', body)
                                 page_data["resi"] = found_prefix + body
                             elif found_prefix in ["SHPE", "SHP"]:
                                 body = re.sub(r'COD', '', body, flags=re.IGNORECASE)
-                                body = re.sub(r'[^A-Z0-9]', '', body, flags=re.IGNORECASE)
-                                page_data["resi"] = found_prefix + body.upper()
+                                body_clean = body.upper()
+                                prev_body = None
+                                while prev_body != body_clean:
+                                    prev_body = body_clean
+                                    body_clean = re.sub(r'(?<=\d)[COD\s](?=\d)', '', body_clean, flags=re.IGNORECASE)
+                                m_pos = re.search(r'(\d{6})([A-Z]{2})(\d{10})', body_clean)
+                                if m_pos:
+                                    page_data["resi"] = found_prefix + m_pos.group(1) + m_pos.group(2).upper() + m_pos.group(3)
+                                else:
+                                    body_clean = re.sub(r'[^A-Z0-9]', '', body_clean)
+                                    page_data["resi"] = found_prefix + body_clean.upper()
                             elif found_prefix in ["SD-", "SD", "GK-", "IN-"]:
                                 body = re.sub(r'COD', '', body, flags=re.IGNORECASE)
                                 body = re.sub(r'[^A-Z0-9-]', '', body, flags=re.IGNORECASE)
@@ -532,15 +542,16 @@ class TikTokPDFReader:
             r'\b11\d{11,13}\b',
             r'\bSPXID\d{9,15}\b',
             r'\bSPX\d{9,15}\b',
+            r'\bIDS(?:[\s]*\d){9,16}[A-Z]?\b',
             r'\bID\d{10,15}[A-Z]?\b',
             r'\bCM\d{9,13}\b',
             r'\bJP\d{10,14}\b',
             r'\bJX\d{10,14}\b',
             r'\bTG\d{10,14}\b',
             r'\bNLID\d{9,14}\b',
-            r'\bSHP[E]?[A-Z0-9]{10,22}\b',
+            r'\bSHP[E]?[A-Z0-9]{10,25}\b',
             r'\bNX\d{9,14}\b',
-            r'(?:SPXID|SPX|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX|TG)[\s:.]*\d{7,20}[A-Z]?'
+            r'(?:SPXID|SPX|IDS|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX|TG)[\s:.]*[A-Z0-9]{7,25}'
         ]
         all_matches = []
         for pattern in resi_patterns:
@@ -565,7 +576,7 @@ class TikTokPDFReader:
                         continue
 
                     # Guard for known prefixes: remainder after prefix MUST start with a digit
-                    known_prefixes = ["SPXID", "SPX", "ID", "CM", "JP", "JX", "TG", "NX", "NLID", "JY", "SHPE", "SHP", "CBN", "PLD", "TJB", "JNE"]
+                    known_prefixes = ["SPXID", "SPX", "IDS", "ID", "CM", "JP", "JX", "TG", "NX", "NLID", "JY", "SHPE", "SHP", "CBN", "PLD", "TJB", "JNE"]
                     has_invalid_prefix_rem = False
                     for p in known_prefixes:
                         if val_clean.startswith(p):
@@ -580,7 +591,7 @@ class TikTokPDFReader:
 
         if all_matches:
             # Prioritization Logic: SPXID/JX/JP/TG first, then SiCepat (00, C0O, 0O), then everything else
-            special_matches = [m for m in all_matches if any(prefix in m.upper() for prefix in ["JX", "JP", "NLID", "SPX", "NX", "TG"])]
+            special_matches = [m for m in all_matches if any(prefix in m.upper() for prefix in ["JX", "JP", "NLID", "SPX", "NX", "TG", "IDS", "SHPE"])]
             sicepat_matches = [m for m in all_matches if m.startswith("00") or m.upper().startswith("C0O") or m.upper().startswith("0O")]
             
             if special_matches:
@@ -595,6 +606,19 @@ class TikTokPDFReader:
                 resi_val = re.sub(fr'\b{re.escape(noise)}\b', '', resi_val, flags=re.IGNORECASE)
                 resi_val = resi_val.replace(noise, "")
             resi_val = re.sub(r'\s+', '', resi_val)
+
+            if resi_val.upper().startswith(("SHPE", "SHP")):
+                prefix = "SHPE" if resi_val.upper().startswith("SHPE") else "SHP"
+                body_clean = resi_val[len(prefix):].upper()
+                prev_body = None
+                while prev_body != body_clean:
+                    prev_body = body_clean
+                    body_clean = re.sub(r'(?<=\d)[COD\s](?=\d)', '', body_clean, flags=re.IGNORECASE)
+                m_pos = re.search(r'(\d{6})([A-Z]{2})(\d{10})', body_clean)
+                if m_pos:
+                    resi_val = prefix + m_pos.group(1) + m_pos.group(2).upper() + m_pos.group(3)
+                else:
+                    resi_val = prefix + re.sub(r'[^A-Z0-9]', '', body_clean)
 
             if resi_val != page_data["nomor_pesanan"]:
                 page_data["resi"] = resi_val.upper()

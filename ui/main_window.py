@@ -14,13 +14,13 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.5.9"
-RELEASE_NOTES = "Perbaikan akurasi resi alfanumerik Pos & pemisahan SKU per halaman"
+CURRENT_VERSION = "2.5.10"
+RELEASE_NOTES = "Dukungan Resi Pos alfanumerik, ID Express (IDS), & pembersihan watermark COD"
 
 WHATS_NEW = [
-    ("📌", "Perbaikan Resi Pos Alfanumerik", "Nomor resi Pos/Shopee (seperti SHPE26080693D4C0058846) kini dibaca penuh secara alfanumerik tanpa terpotong atau menimbulkan noise."),
-    ("🛡️", "Proteksi Penggabungan Halaman Lanjutan", "Halaman yang memiliki label pengiriman kini terdeteksi secara presisi sehingga tidak akan salah digabungkan ke resi sebelumnya."),
-    ("🎯", "Presisi Ekstraksi SKU Per Resi", "Memastikan SKU produk hanya tertulis pada label resi pemiliknya (mencegah SKU dari halaman berikutnya ikut tercetak)."),
+    ("🚚", "Dukungan Resi Pos & ID Express", "Mendukung penuh format resi alfanumerik Pos (SHPE...) dan ID Express (IDS...) tanpa terpotong."),
+    ("🧹", "Pembersihan Watermark COD", "Sistem secara otomatis menghapus gangguan watermark COD pada resi Pos agar nomor resi bersih 100%."),
+    ("⚠️", "Peringatan & Imbauan Ketelitian", "Selalu perhatikan dan cek kembali pada penulisan nomor resi dan pelabelan resi, terutama resi COD karena aplikasi ini tidak selalu sempurna. Kalo kata Aldi Taher: \"Kesempurnaan hanya milik Allah, kalau manusia itu punya banyak salah dan kurang\""),
 ]
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
@@ -720,14 +720,14 @@ class MainWindow(ctk.CTk):
         """Popup shown once after a new version is first launched."""
         popup = ctk.CTkToplevel(self)
         popup.title(f"✨ Apa yang Baru di v{CURRENT_VERSION}")
-        popup.geometry("460x480")
+        popup.geometry("480x520")
         popup.resizable(False, False)
         popup.transient(self)
         popup.grab_set()
 
         self.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() // 2) - 230
-        y = self.winfo_y() + (self.winfo_height() // 2) - 240
+        x = self.winfo_x() + (self.winfo_width() // 2) - 240
+        y = self.winfo_y() + (self.winfo_height() // 2) - 260
         popup.geometry(f"+{x}+{y}")
 
         icon_path_ico = resource_path("assets/icon.ico")
@@ -748,7 +748,13 @@ class MainWindow(ctk.CTk):
         scroll.pack(fill="both", expand=True, padx=8, pady=8)
 
         for icon, title, desc in WHATS_NEW:
-            row = ctk.CTkFrame(scroll, fg_color=("#F9FAFB", "#1E293B"), corner_radius=8)
+            is_warning = (icon == "⚠️")
+            bg_color = ("#FEF3C7", "#2D1D03") if is_warning else ("#F9FAFB", "#1E293B")
+            title_color = ("#B45309", "#FBBF24") if is_warning else ("#111827", "#F1F5F9")
+            desc_color = ("#92400E", "#FDE68A") if is_warning else ("#6B7280", "#9CA3AF")
+            border_kwargs = {"border_width": 1, "border_color": ("#F59E0B", "#D97706")} if is_warning else {}
+
+            row = ctk.CTkFrame(scroll, fg_color=bg_color, corner_radius=8, **border_kwargs)
             row.pack(fill="x", padx=12, pady=5)
             row.grid_columnconfigure(1, weight=1)
 
@@ -758,12 +764,12 @@ class MainWindow(ctk.CTk):
 
             # Title
             ctk.CTkLabel(row, text=title, font=("Segoe UI", 12, "bold"),
-                         text_color=("#111827", "#F1F5F9"), anchor="w").grid(
+                         text_color=title_color, anchor="w").grid(
                 row=0, column=1, sticky="ew", padx=(0, 12), pady=(10, 0))
 
             # Description
             ctk.CTkLabel(row, text=desc, font=("Segoe UI", 11),
-                         text_color=("#6B7280", "#9CA3AF"), anchor="w", wraplength=340, justify="left").grid(
+                         text_color=desc_color, anchor="w", wraplength=350, justify="left").grid(
                 row=1, column=1, sticky="ew", padx=(0, 12), pady=(0, 10))
 
         # Footer button
