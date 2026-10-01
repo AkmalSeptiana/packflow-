@@ -46,12 +46,12 @@ class ShopeePDFReader:
                         r'\b11\d{11,13}\b',                            # Anteraja (11 + 11-13 digits)
                         r'\b(?:COD)?C?11[O0]+\d{6,15}[A-Z0-9]*\b',     # Mangled Anteraja (C11O, 11O, etc)
                         r'\b1(?:\s*\d){12,15}\b',                      # Anteraja Standard / Other Numeric 1...
-                        r'C?SPX[O0]?ID(?:[\sA-Z]*\d){9,15}\b',        # Mangled CSPXOID / SPXOID + digits with noise chars (D, O, etc)
-                        r'\bSPX[\s:.-]*ID(?:[\s]*\d){10,15}\b',        # SPX ID + 10-15 digits (allows spaces)
-                        r'\bSPXID(?:[\s]*\d){9,15}\b',                 # SPXID + 9-15 digits (allows spaces in digit body)
-                        r'\bSPX(?:[\s]*\d){9,15}\b',                   # SPX + digits (allows spaces)
-                        r'\bIDS(?:[\s]*\d){9,16}[A-Z]?\b',             # ID Express IDS + digits
-                        r'\bID(?:[\s]*\d){10,15}[A-Z]?\b',             # Shopee ID / J&T (ID + 10-15 digits + optional letter)
+                        r'C?SPX[O0]?ID(?:[\sA-Z]*\d){9,15}(?:[\s\-_]*[A-Z]{1,2})?\b',        # Mangled CSPXOID / SPXOID + digits with noise chars (D, O, etc) + optional suffix letters
+                        r'\bSPX[\s:.-]*ID(?:[\s]*\d){9,15}(?:[\s\-_]*[A-Z]{1,2})?\b',        # SPX ID + 9-15 digits (allows spaces) + optional suffix letters
+                        r'\bSPXID(?:[\s]*\d){9,15}(?:[\s\-_]*[A-Z]{1,2})?\b',                 # SPXID + 9-15 digits + optional suffix letters
+                        r'\bSPX(?:[\s]*\d){9,15}(?:[\s\-_]*[A-Z]{1,2})?\b',                   # SPX + digits + optional suffix letters
+                        r'\bIDS(?:[\s]*\d){9,16}[A-Z]?\b',                                     # ID Express IDS + digits
+                        r'\bID(?:[\s]*\d){10,15}(?:[\s\-_]*[A-Z]{1,2})?\b',                  # Shopee ID / J&T (ID + 10-15 digits + optional suffix letters)
                         r'\bCM\d{9,13}\b',                             # JNE / J&T CM (CM + 9-13 digits)
                         r'\bJP\d{10,14}\b',                            # J&T JP (JP + 10-14 digits)
                         r'\bJX\d{10,14}\b',                            # J&T Cargo JX (JX + 10-14 digits)
@@ -171,16 +171,41 @@ class ShopeePDFReader:
                             
                             # Standard tracking numbers (like SPXID, J&T, etc)
                             if found_prefix in ["CSPXOID", "CSPXID", "CSPX", "SPXOID", "SPXID", "SPX"]:
-                                body = re.sub(r'[^0-9]', '', body)
-                                page_data["resi"] = "SPXID" + body
-                            elif found_prefix == "ID":
-                                body_digits = re.sub(r'[^0-9]', '', body)
-                                # Shopee Express numbers start with 0 or have SPX on page
-                                if body.startswith("0") or "SPX" in text.upper() or "SHOPEE" in text.upper():
-                                    page_data["resi"] = "SPXID" + body_digits
+                                body_clean = re.sub(r'(?:COD|NON-COD|ECO|REG)', '', body, flags=re.IGNORECASE)
+                                body_clean = re.sub(r'[\s\-_:]', '', body_clean).upper()
+                                m_trailing = re.search(r'([A-Z]+)$', body_clean)
+                                if m_trailing:
+                                    trailing = m_trailing.group(1)
+                                    if len(trailing) <= 2:
+                                        # Valid suffix (1-2 chars like A, AB)
+                                        digits_part = re.sub(r'[^0-9]', '', body_clean[:-len(trailing)])
+                                        page_data["resi"] = "SPXID" + digits_part + trailing
+                                    else:
+                                        # Noise word (3+ chars like PEN, PENERIMA) - strip entirely
+                                        digits_part = re.sub(r'[^0-9]', '', body_clean[:-len(trailing)])
+                                        page_data["resi"] = "SPXID" + digits_part
                                 else:
-                                    body_clean = re.sub(r'COD', '', body, flags=re.IGNORECASE)
-                                    body_clean = re.sub(r'[^A-Z0-9]', '', body_clean, flags=re.IGNORECASE)
+                                    digits_part = re.sub(r'[^0-9]', '', body_clean)
+                                    page_data["resi"] = "SPXID" + digits_part
+                            elif found_prefix == "ID":
+                                body_clean = re.sub(r'(?:COD|NON-COD|ECO|REG)', '', body, flags=re.IGNORECASE)
+                                body_clean = re.sub(r'[\s\-_:]', '', body_clean).upper()
+                                # Shopee Express numbers start with 0 or have SPX on page
+                                if body.strip().startswith("0") or "SPX" in text.upper() or "SHOPEE" in text.upper():
+                                    m_trailing = re.search(r'([A-Z]+)$', body_clean)
+                                    if m_trailing:
+                                        trailing = m_trailing.group(1)
+                                        if len(trailing) <= 2:
+                                            digits_part = re.sub(r'[^0-9]', '', body_clean[:-len(trailing)])
+                                            page_data["resi"] = "SPXID" + digits_part + trailing
+                                        else:
+                                            digits_part = re.sub(r'[^0-9]', '', body_clean[:-len(trailing)])
+                                            page_data["resi"] = "SPXID" + digits_part
+                                    else:
+                                        digits_part = re.sub(r'[^0-9]', '', body_clean)
+                                        page_data["resi"] = "SPXID" + digits_part
+                                else:
+                                    body_clean = re.sub(r'[^A-Z0-9]', '', body_clean)
                                     page_data["resi"] = "ID" + body_clean.upper()
                             elif found_prefix in ["JP", "CBN", "PLD", "TJB", "JX", "CM", "JNE", "NX", "IDS"]:
                                 body = re.sub(r'COD', '', body, flags=re.IGNORECASE)
@@ -240,6 +265,8 @@ class ShopeePDFReader:
                                 # Just clean redundant prefixes if attached improperly
                                 clean_val = re.sub(r'^COD', '', clean_val)
                                 clean_val = re.sub(r'^C(?=ID)', '', clean_val) # Remove 'C' if it's 'CID...'
+                                if clean_val.startswith("SPX") and not clean_val.startswith("SPXID"):
+                                    clean_val = "SPXID" + clean_val[3:]
                             
                             page_data["resi"] = clean_val
                             
@@ -255,6 +282,7 @@ class ShopeePDFReader:
                     # 1b. Extract Recipient (Penerima) - Fixed & Robust
                     words = page.extract_words()
                     penerima_node = None
+                    pengirim_node = None
                     for w in words:
                         w_text = w['text'].upper()
                         if "PENERIMA" in w_text and "PENGIRIM" not in w_text:
@@ -540,10 +568,10 @@ class TikTokPDFReader:
             r'\b00\d{10,13}\b',
             r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',
             r'\b11\d{11,13}\b',
-            r'\bSPXID\d{9,15}\b',
-            r'\bSPX\d{9,15}\b',
+            r'\bSPXID\d{9,15}(?:[\s\-_]*[A-Z]{1,5})?\b',
+            r'\bSPX\d{9,15}(?:[\s\-_]*[A-Z]{1,5})?\b',
             r'\bIDS(?:[\s]*\d){9,16}[A-Z]?\b',
-            r'\bID\d{10,15}[A-Z]?\b',
+            r'\bID\d{10,15}(?:[\s\-_]*[A-Z]{1,5})?\b',
             r'\bCM\d{9,13}\b',
             r'\bJP\d{10,14}\b',
             r'\bJX\d{10,14}\b',
@@ -619,6 +647,19 @@ class TikTokPDFReader:
                     resi_val = prefix + m_pos.group(1) + m_pos.group(2).upper() + m_pos.group(3)
                 else:
                     resi_val = prefix + re.sub(r'[^A-Z0-9]', '', body_clean)
+            elif resi_val.upper().startswith("SPX"):
+                body = resi_val[3:]
+                if body.upper().startswith("ID"):
+                    body = body[2:]
+                body_clean = re.sub(r'[\s\-_:]', '', body).upper()
+                m_suffix = re.search(r'([A-Z]+)$', body_clean)
+                if m_suffix:
+                    suffix = m_suffix.group(1)
+                    digits_part = re.sub(r'[^0-9]', '', body_clean[:-len(suffix)])
+                    resi_val = "SPXID" + digits_part + suffix
+                else:
+                    digits_part = re.sub(r'[^0-9]', '', body_clean)
+                    resi_val = "SPXID" + digits_part
 
             if resi_val != page_data["nomor_pesanan"]:
                 page_data["resi"] = resi_val.upper()

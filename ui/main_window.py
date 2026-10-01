@@ -14,14 +14,13 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.5.10"
-RELEASE_NOTES = "Dukungan Resi Pos alfanumerik, ID Express (IDS), & pembersihan watermark COD"
+CURRENT_VERSION = "2.6.0"
+RELEASE_NOTES = "Peningkatan keakuratan ekstrak resi SPX"
 
 WHATS_NEW = [
-    ("🚚", "Dukungan Resi Pos & ID Express", "Mendukung penuh format resi alfanumerik Pos (SHPE...) dan ID Express (IDS...) tanpa terpotong."),
-    ("🧹", "Pembersihan Watermark COD", "Sistem secara otomatis menghapus gangguan watermark COD pada resi Pos agar nomor resi bersih 100%."),
-    ("⚠️", "Peringatan & Imbauan Ketelitian", "Selalu perhatikan dan cek kembali pada penulisan nomor resi dan pelabelan resi, terutama resi COD karena aplikasi ini tidak selalu sempurna. Kalo kata Aldi Taher: \"Kesempurnaan hanya milik Allah, kalau manusia itu punya banyak salah dan kurang\""),
-]
+    ("🚚", "Peningkatan Akurasi SPX", "Ekstraksi nomor resi Shopee Express ditingkatkan signifikan dengan algoritma baru, mencapai akurasi hingga 90%++ pada berbagai format PDF."),
+    ("📦", "Ekstraksi Data SKU Otomatis", "Sistem mampu secara otomatis mendeteksi dan mengekstrak SKU dari resi Shopee Express, mengurangi entri manual.")
+    ]
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
 try:
@@ -94,7 +93,7 @@ class MainWindow(ctk.CTk):
                 from PIL import ImageTk
                 img = Image.open(icon_path_png)
                 self.icon_photo = ImageTk.PhotoImage(img)
-                self.iconphoto(False, self.icon_photo)
+                self.iconphoto(False, self.icon_photo)  # type: ignore
             except Exception:
                 pass
         

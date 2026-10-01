@@ -86,7 +86,7 @@ def main():
                 return # Stop jika file masih terkunci
         
         print("\n--- Memulai Build EXE ---")
-        if run_command("python build_exe.py"):
+        if run_command("py build_exe.py"):
             print("\n--- Memulai Kompilasi Inno Setup ---")
             iscc_cmd = f'& "{PATH_ISCC}" {FILE_INSTALLER}'
             if run_command(iscc_cmd):

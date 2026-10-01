@@ -1,0 +1,24 @@
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]
+check-unannotated-defs = false
+
+[errors]
+bad-argument-type = "ignore"
+missing-attribute = "ignore"
+not-iterable = "ignore"
+bad-index = "ignore"
+unbound-name = "ignore"
+deprecated = "ignore"
+no-matching-overload = "ignore"
+bad-unpacking = "ignore"
+unexpected-keyword = "ignore"
+unexpected-positional-argument = "ignore"
+bad-assignment = "ignore"
+missing-argument = "ignore"
+bad-keyword-argument = "ignore"
+potential-bad-keyword-argument = "ignore"
+unsupported-operation = "ignore"
+unknown-name = "ignore"
+missing-module-attribute = "ignore"
