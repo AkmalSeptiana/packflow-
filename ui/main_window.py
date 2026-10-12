@@ -14,12 +14,12 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.6.0"
-RELEASE_NOTES = "Peningkatan keakuratan ekstrak resi SPX"
+CURRENT_VERSION = "2.6.1"
+RELEASE_NOTES = "Bugfix"
 
 WHATS_NEW = [
-    ("🚚", "Peningkatan Akurasi SPX", "Ekstraksi nomor resi Shopee Express ditingkatkan signifikan dengan algoritma baru, mencapai akurasi hingga 90%++ pada berbagai format PDF."),
-    ("📦", "Ekstraksi Data SKU Otomatis", "Sistem mampu secara otomatis mendeteksi dan mengekstrak SKU dari resi Shopee Express, mengurangi entri manual.")
+    ("🔧", "Perbaikan input penambahan SKU pada pengaturan"),
+    ("💾", "Setiap Melakukan Penambahan SKU pada perangkat akan tersimpan")
     ]
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances

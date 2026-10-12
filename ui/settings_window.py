@@ -116,22 +116,51 @@ class SettingsFrame(ctk.CTkFrame):
         self.save_btn.grid(row=0, column=1, padx=(6, 0), sticky="ew")
 
     def _load_values(self):
+        self.suffix_entry.delete(0, "end")
         self.suffix_entry.insert(0, self.settings.get("sku_suffix", ""))
+        
+        self.ignored_entry.delete(0, "end")
         self.ignored_entry.insert(0, ", ".join(self.settings.get("ignored_skus", [])))
+        
         self.font_family_option.set(self.settings.get("label_font_family", "Arial-Bold"))
+        
+        self.font_size_entry.delete(0, "end")
         self.font_size_entry.insert(0, str(self.settings.get("label_font_size", 18)))
+        
         self.color_option.set(self.settings.get("label_color", "Red"))
         
+        self.tg_token_entry.delete(0, "end")
         self.tg_token_entry.insert(0, self.settings.get("telegram_bot_token", ""))
+        
+        self.tg_chat_id_entry.delete(0, "end")
         self.tg_chat_id_entry.insert(0, self.settings.get("telegram_chat_id", ""))
 
+        self.whitelist_text.delete("0.0", "end")
         whitelist = self.settings.get("sku_whitelist", [])
         self.whitelist_text.insert("0.0", ", ".join(whitelist))
 
     def _save_settings(self):
         try:
-            self.settings["sku_suffix"] = self.suffix_entry.get()
-            self.settings["ignored_skus"] = [s.strip().upper() for s in self.ignored_entry.get().split(",") if s.strip()]
+            self.settings["sku_suffix"] = self.suffix_entry.get().strip()
+            
+            # Save ignored SKUs
+            raw_ignored = self.ignored_entry.get()
+            ignored_list = []
+            for s in raw_ignored.replace("\n", ",").split(","):
+                clean = s.strip().upper()
+                if clean and clean not in ignored_list:
+                    ignored_list.append(clean)
+            self.settings["ignored_skus"] = ignored_list
+
+            # Save Whitelist SKUs (from textbox, separated by comma or newlines)
+            raw_whitelist = self.whitelist_text.get("0.0", "end")
+            whitelist = []
+            for item in raw_whitelist.replace("\n", ",").split(","):
+                clean_item = item.strip().upper()
+                if clean_item and clean_item not in whitelist:
+                    whitelist.append(clean_item)
+            self.settings["sku_whitelist"] = whitelist
+
             self.settings["label_font_family"] = self.font_family_option.get()
             
             try:
@@ -148,7 +177,7 @@ class SettingsFrame(ctk.CTkFrame):
                 os.makedirs(config_dir)
                 
             with open(self.settings_path, 'w') as f:
-                json.dump(self.settings, f, indent=2)
+                json.dump(self.settings, f, indent=4)
                 
             self.on_save_callback(self.settings)
             self.on_close_callback()

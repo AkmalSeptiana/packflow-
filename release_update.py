@@ -40,7 +40,9 @@ def sync_version_to_installer(new_version):
 
 def run_command(command):
     print(f"\n> Running: {command}")
-    process = subprocess.Popen(["powershell", "-Command", command])
+    env = os.environ.copy()
+    env["PATH"] = r"C:\Program Files\Git\cmd;" + env.get("PATH", "")
+    process = subprocess.Popen(["powershell", "-Command", command], env=env)
     process.wait()
     return process.returncode == 0
 
