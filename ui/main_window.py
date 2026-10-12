@@ -18,8 +18,8 @@ CURRENT_VERSION = "2.6.1"
 RELEASE_NOTES = "Bugfix"
 
 WHATS_NEW = [
-    ("🔧", "Perbaikan input penambahan SKU pada pengaturan"),
-    ("💾", "Setiap Melakukan Penambahan SKU pada perangkat akan tersimpan")
+    ("🔧", "Perbaikan Input SKU", "Perbaikan input penambahan SKU pada pengaturan agar tersimpan dengan benar."),
+    ("💾", "Penyimpanan SKU", "Setiap melakukan penambahan SKU pada perangkat akan langsung tersimpan ke file konfigurasi.")
     ]
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances
