@@ -14,12 +14,11 @@ import sys
 import tkinter as tk
 from core.updater import AutoUpdater
 
-CURRENT_VERSION = "2.6.1"
-RELEASE_NOTES = "Bugfix"
+CURRENT_VERSION = "2.6.2"
+RELEASE_NOTES = "Perbaikan Resi Instant"
 
 WHATS_NEW = [
-    ("🔧", "Perbaikan Input SKU", "Perbaikan input penambahan SKU pada pengaturan agar tersimpan dengan benar."),
-    ("💾", "Penyimpanan SKU", "Setiap melakukan penambahan SKU pada perangkat akan langsung tersimpan ke file konfigurasi.")
+    ("🔧", "Perbaikan Resi Instant", "Perbaikan beberapa format nomor resi instan yang tidak terbaca.")
     ]
 
 # Create Mutex to allow installer to detect running app and prevent multiple instances

@@ -39,7 +39,7 @@ class ShopeePDFReader:
                     resi_patterns = [
                         r'\b(?:GK|IN|SD)-\d+-[A-Z0-9-]+\b',            # Instant/Grab GK-, IN-, SD- patterns
                         r'\b(?:GK|IN|SD)-[A-Z0-9-]+\b',                # Other Instant formats
-                        r'\b3[12]\d{17,20}\b',                         # Instant Numeric (ShopeeFood/Grab/Gojek 31/32...)
+                        r'\b(?:(?:No[:\s]*)?0{1,3}\d)?3[0-9]\d{17,20}\b', # Instant Numeric (ShopeeFood/Grab/Gojek 3X, with optional sequence prefix)
                         r'\bJY\d{9,15}\b',                             # JNE YES (JY...)
                         r'\b00\d{10,13}\b',                            # Sicepat (starts with 00)
                         r'\b[C0]0[O0]\d{10,13}[A-Z0-9]*\b',             # Mangled SiCepat (C0O, 0O, etc)
@@ -60,7 +60,7 @@ class ShopeePDFReader:
                         r'\bSHP[E]?[A-Z0-9]{10,25}\b',                 # POS / Ninja / Shopee SHP / SHPE Alphanumeric
                         r'\bNX\d{9,14}\b',                             # Ninja NX
                         r'(?:SPXID|SPX|IDS|ID|JP|CBN|PLD|TJB|JX|CM|JNE|SHPE|SHP|NX|TG)[\s:.]*[A-Z0-9]{7,25}', # Alphanumeric Prefix + Digits
-                        r'\b(?:COD)?(?!08)(?:\s*\d){12,22}\b'          # J&T / SPX / Instant Numeric
+                        r'\b(?:COD)?(?!08)(?:\s*\d){12,25}\b'          # J&T / SPX / Instant Numeric
                     ]
                     
                     all_matches = []
@@ -99,6 +99,14 @@ class ShopeePDFReader:
                                     break
                             if has_invalid_prefix_rem:
                                 continue
+                            
+                            # GUARD: Strip leading sequence/page numbers from numeric-only instant resi
+                            # e.g. "00131xxxx" -> "31xxxx", "00333xxxx" -> "33xxxx", "01033xxxx" -> "33xxxx"
+                            # Only strip if the result still starts with 3X and is long enough
+                            if val_clean.isdigit() and len(val_clean) >= 15:
+                                stripped = re.sub(r'^(?:No[:\s]*)?(?:0[1-9]\d|0{1,3}\d|0{1,3})(?=3[0-9]\d{14,})', '', val_clean, flags=re.IGNORECASE)
+                                if stripped != val_clean and len(stripped) >= 15:
+                                    val_clean = stripped
                                 
                             if len(val_clean) >= 7:
                                 all_matches.append(val_clean)
@@ -111,10 +119,10 @@ class ShopeePDFReader:
                         jp_matches = [m for m in all_matches if m.startswith("JP") and len(m) >= 10]
                         jx_matches = [m for m in all_matches if m.startswith("JX") and len(m) >= 10]
                         ninja_matches = [m for m in all_matches if any(m.startswith(p) for p in ["SHP", "NLID", "NX"]) and len(m) >= 10]
-                        instant_matches = [m for m in all_matches if (m.startswith("31") or m.startswith("32")) and len(m) >= 15]
+                        instant_matches = [m for m in all_matches if re.match(r'^3[0-9]\d{13,}$', m)]
                         sameday_matches = [m for m in all_matches if any(m.startswith(p) for p in ["SD-", "IN-", "GK-"])]
                         anteraja_matches = [m for m in all_matches if (m.startswith("11") or m.startswith("C11")) and 13 <= len(re.sub(r'[^0-9]', '', m)) <= 14]
-                        sicepat_matches = [m for m in all_matches if any(m.startswith(p) for p in ["00", "0O", "C0O"]) and not m.startswith("0011") and not m.startswith("0031") and not any(m.startswith(p) for p in ["SD-", "IN-", "GK-"]) and len(re.sub(r'[^0-9]', '', m)) >= 12 and m.isdigit()]
+                        sicepat_matches = [m for m in all_matches if any(m.startswith(p) for p in ["00", "0O", "C0O"]) and not re.match(r'^00[3]', m) and not m.startswith("0011") and not any(m.startswith(p) for p in ["SD-", "IN-", "GK-"]) and len(re.sub(r'[^0-9]', '', m)) >= 12 and m.isdigit()]
                         
                         if spx_matches:
                             resi_val = spx_matches[0]
@@ -137,8 +145,8 @@ class ShopeePDFReader:
                         elif sicepat_matches:
                             resi_val = sicepat_matches[0]
                         else:
-                            # Fallback but avoid common headers if possible
-                            candidates = [m for m in all_matches if not m.startswith("001") and not m.startswith("002")]
+                            # Fallback but avoid common headers/sequence numbers
+                            candidates = [m for m in all_matches if not re.match(r'^00[0-9]', m)]
                             resi_val = candidates[0] if candidates else all_matches[0]
                         
                         # --- DEEP CLEAN SELECTION ---
@@ -146,9 +154,9 @@ class ShopeePDFReader:
                         # Remove alphabetic sorting prefixes (TGL, TGR, etc) if they are followed by numbers
                         resi_val = re.sub(r'^(?:TGL|TGR|CGK|JKT|SUB|BTG|KNG|BTG|PNK|BDO)', '', resi_val, flags=re.IGNORECASE)
                         
-                        # Remove sequence patterns like "No:01" or "01 " but only if followed by valid resi starts (11, 00, 31, 32)
-                        # We use 0\d to ensure we only strip sequence numbers like 01, 02, not 11 (Anteraja)
-                        resi_val = re.sub(r'^(?:No[:\s]*)?0\d(?:\s*(?=11|00|31|32))', '', resi_val, flags=re.IGNORECASE)
+                        # Remove sequence patterns like "No:01" or "001" before valid resi starts (11, 00, 3X)
+                        # Handles 001, 002, 003, 010 etc (leading zeros + digit) before instant resi
+                        resi_val = re.sub(r'^(?:No[:\s]*)?(?:0[1-9]\d|0{1,3}\d)(?=(?:11|00|3[0-9])\d)', '', resi_val, flags=re.IGNORECASE)
                         
                         # 2. Remove other common PDF noise symbols
                         for noise in [":", ".", ",", "(", ")", "COD", "NON-COD", "ECO", "REG"]:
